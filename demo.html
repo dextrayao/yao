@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2030 財富自由精算系統 - Demo</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#f5f7fa;--card:#fff;--primary:#636EFA;--green:#00CC96;--red:#EF553B;--yellow:#FFA15A;--text:#262730;--muted:#888;--border:#e0e0e0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
+.container{display:flex;min-height:100vh}
+.sidebar{width:340px;background:var(--card);border-right:1px solid var(--border);padding:20px;overflow-y:auto;flex-shrink:0}
+.main{flex:1;padding:24px;overflow-y:auto}
+h1{font-size:1.4rem;margin-bottom:4px}
+h2{font-size:1.1rem;margin:16px 0 8px;color:var(--primary)}
+.subtitle{color:var(--muted);font-size:0.85rem;margin-bottom:16px}
+.section{margin-bottom:16px;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.section-title{background:#f8f9fb;padding:10px 14px;font-weight:600;font-size:0.9rem;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.section-title:hover{background:#eef0f4}
+.section-title::after{content:"▼";font-size:0.7rem;transition:transform 0.2s}
+.section.collapsed .section-title::after{transform:rotate(-90deg)}
+.section.collapsed .section-body{display:none}
+.section-body{padding:12px 14px}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:0.8rem;color:var(--muted);margin-bottom:4px}
+.field input[type=range]{width:100%;accent-color:var(--primary)}
+.field input[type=number],.field input[type=text]{width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:0.9rem}
+.field .val{text-align:right;font-weight:600;font-size:0.9rem;color:var(--primary)}
+.toggle{display:flex;align-items:center;gap:8px;font-size:0.85rem;margin-bottom:8px}
+.toggle input{accent-color:var(--primary);width:18px;height:18px}
+.badge{display:inline-block;padding:6px 18px;border-radius:20px;font-weight:700;font-size:1rem;margin:8px 0}
+.badge-green{background:#d4edda;color:#155724}
+.badge-yellow{background:#fff3cd;color:#856404}
+.badge-red{background:#f8d7da;color:#721c24}
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:16px 0}
+.kpi{background:linear-gradient(135deg,#667eea11,#764ba211);border:1px solid var(--border);border-radius:12px;padding:14px 16px;text-align:center}
+.kpi .label{font-size:0.75rem;color:var(--muted)}
+.kpi .value{font-size:1.3rem;font-weight:700;margin-top:4px}
+.kpi .delta{font-size:0.8rem;margin-top:2px}
+.tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin:20px 0 16px}
+.tab{padding:10px 16px;cursor:pointer;font-size:0.85rem;font-weight:500;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--muted)}
+.tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+.tab:hover{color:var(--text)}
+.tab-content{display:none}
+.tab-content.active{display:block}
+.chart-box{background:var(--card);border-radius:12px;padding:16px;border:1px solid var(--border);margin-bottom:16px}
+table{width:100%;border-collapse:collapse;font-size:0.82rem}
+th{background:#f8f9fb;padding:8px 10px;text-align:right;font-weight:600;border-bottom:2px solid var(--border)}
+th:first-child{text-align:left}
+td{padding:7px 10px;text-align:right;border-bottom:1px solid #f0f0f0}
+td:first-child{text-align:left}
+tr:hover{background:#f8f9fb}
+.summary-box{background:var(--card);border-radius:12px;padding:20px;border:1px solid var(--border)}
+.summary-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0}
+.summary-row:last-child{border:none;font-weight:700;font-size:1.05rem}
+.stock-table input[type=number]{width:80px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;text-align:right;font-size:0.82rem}
+.info-box{background:#e8f4fd;border:1px solid #bee5eb;border-radius:8px;padding:12px;font-size:0.85rem;margin:12px 0}
+.guide{background:var(--card);border-radius:12px;padding:16px;border:1px solid var(--border);margin-top:20px}
+.guide summary{font-weight:600;cursor:pointer;font-size:0.95rem}
+.guide table{margin-top:12px}
+.guide th,.guide td{text-align:left}
+.pl-pos{color:#00CC96;font-weight:600}
+.pl-neg{color:#EF553B;font-weight:600}
+.dyn-item{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+.dyn-item input[type=text]{flex:1;min-width:60px}
+.dyn-item input[type=number]{width:90px}
+.dyn-item button{background:var(--red);color:#fff;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;font-size:0.8rem}
+.add-btn{background:var(--primary);color:#fff;border:none;border-radius:6px;padding:6px 14px;cursor:pointer;font-size:0.82rem;margin-top:4px}
+.dyn-total{font-size:0.85rem;font-weight:600;color:var(--primary);margin-top:6px;text-align:right}
+.hamburger{display:none;position:fixed;top:12px;left:12px;z-index:100;background:var(--primary);color:#fff;border:none;border-radius:8px;padding:8px 12px;font-size:1.2rem;cursor:pointer}
+.overlay{display:none}
+@media(max-width:768px){
+.sidebar{position:fixed;left:-360px;top:0;bottom:0;z-index:99;transition:left 0.3s;box-shadow:2px 0 12px rgba(0,0,0,0.15)}
+.sidebar.open{left:0}
+.hamburger{display:block}
+.overlay.open{display:block;position:fixed;inset:0;background:rgba(0,0,0,0.3);z-index:98}
+.main{padding:16px;padding-top:52px}
+.kpi-row{grid-template-columns:repeat(2,1fr)}
+.kpi .value{font-size:1.1rem}
+.tabs{overflow-x:auto;flex-wrap:nowrap}
+.tab{white-space:nowrap;font-size:0.78rem;padding:8px 10px}
+}
+</style>
+</head>
+<body>
+<button class="hamburger" onclick="toggleSidebar()">☰</button>
+<div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+<div class="container">
+<div class="sidebar" id="sidebar">
+<h1>退休精算系統</h1>
+<p class="subtitle">Demo 版 — 範例數據</p>
+
+<div class="section">
+<div class="section-title" onclick="toggleSection(this)">👤 個人資訊</div>
+<div class="section-body">
+<div class="field"><label>月薪 (NTD)</label><input type="range" id="salary" min="30000" max="500000" step="5000" value="60000" oninput="update()"><div class="val" id="salaryVal"></div></div>
+<div class="field"><label>目標退休年齡</label><input type="range" id="retireAge" min="50" max="75" value="65" oninput="update()"><div class="val" id="retireAgeVal"></div></div>
+<div class="field"><label>出生年</label><input type="number" id="birthYear" value="1985" min="1950" max="2005" oninput="update()"></div>
+</div></div>
+
+<div class="section">
+<div class="section-title" onclick="toggleSection(this)">🧾 稅務設定</div>
+<div class="section-body">
+<div class="field"><label>扶養人數 (不含本人)</label><input type="range" id="dependents" min="0" max="10" value="1" oninput="update()"><div class="val" id="dependentsVal"></div></div>
+<div class="field"><label>月租金</label><input type="range" id="monthlyRent" min="0" max="50000" step="1000" value="15000" oninput="update()"><div class="val" id="monthlyRentVal"></div></div>
+<div class="toggle"><input type="checkbox" id="receiveSubsidy" checked onchange="update()"><label for="receiveSubsidy">領取租金補貼 (不可同時扣除房租)</label></div>
+</div></div>
+
+<div class="section">
+<div class="section-title" onclick="toggleSection(this)">📈 投資設定</div>
+<div class="section-body">
+<div class="field"><label>前期每月投入</label><input type="range" id="phase1" min="0" max="100000" step="1000" value="10000" oninput="update()"><div class="val" id="phase1Val"></div></div>
+<div class="field"><label>前期年數</label><input type="range" id="phase1y" min="1" max="13" value="5" oninput="update()"><div class="val" id="phase1yVal"></div></div>
+<div class="field"><label>後期每月投入</label><input type="range" id="phase2" min="0" max="100000" step="1000" value="15000" oninput="update()"><div class="val" id="phase2Val"></div></div>
+<div class="field"><label>年化報酬率 (%)</label><input type="range" id="roi" min="1" max="15" step="0.5" value="7" oninput="update()"><div class="val" id="roiVal"></div></div>
+<div class="field"><label>目前帳戶餘額</label><input type="number" id="balance" value="200000" step="50000" oninput="update()"></div>
+</div></div>
+
+<div class="section">
+<div class="section-title" onclick="toggleSection(this)">🎁 年度額外加碼</div>
+<div class="section-body">
+<div id="bonusList"></div>
+<button class="add-btn" onclick="addBonus()">+ 新增加碼項目</button>
+<div class="dyn-total" id="bonusTotal"></div>
+</div></div>
+
+<div class="section">
+<div class="section-title" onclick="toggleSection(this)">💰 每月開銷</div>
+<div class="section-body">
+<div id="expenseList"></div>
+<button class="add-btn" onclick="addExpense()">+ 新增開銷項目</button>
+<div class="dyn-total" id="expenseTotal"></div>
+</div></div>
+
+<div class="section">
+<div class="section-title" onclick="toggleSection(this)">🏦 勞保勞退</div>
+<div class="section-body">
+<div class="field"><label>勞保已累積年資 (年)</label><input type="number" id="pensionYears" value="10" min="0" max="45" oninput="update()"></div>
+<div class="field"><label>勞保最高投保薪資</label><input type="number" id="pensionSalary" value="36300" min="0" step="100" oninput="update()"></div>
+<div style="background:#f8f9fb;border-radius:8px;padding:10px;margin-bottom:12px">
+<div style="font-size:0.8rem;color:var(--muted)">勞保年金自動試算 (月領)</div>
+<div style="font-size:1.2rem;font-weight:700;color:var(--primary)" id="pensionCalc"></div>
+<div style="font-size:0.75rem;color:var(--muted)" id="pensionFormula"></div>
+</div>
+<hr style="border:none;border-top:1px solid var(--border);margin:12px 0">
+<div class="field"><label>勞退帳戶已累積 (NTD)</label><input type="number" id="laborRetAccum" value="350000" min="0" step="10000" oninput="update()"></div>
+<div class="field"><label>每月雇主提撥率 (%)</label><input type="range" id="laborRetRate" min="6" max="12" step="1" value="6" oninput="update()"><div class="val" id="laborRetRateVal"></div></div>
+<div style="background:#f8f9fb;border-radius:8px;padding:10px;margin-bottom:12px">
+<div style="font-size:0.8rem;color:var(--muted)">勞退月領自動試算</div>
+<div style="font-size:1.2rem;font-weight:700;color:var(--primary)" id="laborRetCalc"></div>
+<div style="font-size:0.75rem;color:var(--muted)" id="laborRetFormula"></div>
+</div>
+</div></div>
+</div>
+
+<div class="main">
+<div id="readiness"></div>
+<div class="kpi-row" id="kpis"></div>
+
+<div class="tabs">
+<div class="tab active" onclick="switchTab(0)">📈 資產成長</div>
+<div class="tab" onclick="switchTab(1)">🔬 壓力測試</div>
+<div class="tab" onclick="switchTab(2)">📋 年度明細</div>
+<div class="tab" onclick="switchTab(3)">🧮 退休收入</div>
+<div class="tab" onclick="switchTab(4)">📊 股票持倉</div>
+</div>
+
+<div class="tab-content active" id="tabGrowth">
+<div class="chart-box"><canvas id="growthChart"></canvas></div>
+<div class="kpi-row" id="growthInsight"></div>
+</div>
+<div class="tab-content" id="tabStress">
+<div class="chart-box"><canvas id="stressChart"></canvas></div>
+<div id="stressTable"></div>
+</div>
+<div class="tab-content" id="tabDetail"><div id="detailTable"></div></div>
+<div class="tab-content" id="tabRetire">
+<div class="summary-box" id="retireSummary"></div>
+<div class="chart-box" style="margin-top:16px"><canvas id="pieChart"></canvas></div>
+</div>
+<div class="tab-content" id="tabStocks">
+<h2>我的股票持倉</h2>
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+<p class="subtitle" style="margin:0">每小時自動更新股價</p>
+<button onclick="fetchStockPrices()" style="padding:6px 16px;border:1px solid var(--primary);background:var(--primary);color:#fff;border-radius:8px;cursor:pointer;font-size:0.85rem">🔄 立即更新</button>
+<span id="lastUpdate" style="font-size:0.78rem;color:var(--muted)"></span>
+</div>
+<div id="fetchStatus"></div>
+<div id="stockSection"></div>
+</div>
+
+<details class="guide">
+<summary>💡 新手指南：看不懂？點這裡</summary>
+<table>
+<tr><th>名詞</th><th>意思</th></tr>
+<tr><td><b>年化報酬率</b></td><td>投資每年平均賺多少 %。台股長期約 7-9%</td></tr>
+<tr><td><b>4% 安全提領率</b></td><td>退休後每年提領投資帳戶的 4%，可撐 30 年</td></tr>
+<tr><td><b>覆蓋率</b></td><td>被動收入 ÷ 每月開銷。> 1 倍代表收入夠用</td></tr>
+<tr><td><b>勞保年金</b></td><td>政府每月發的退休金，依投保年資計算</td></tr>
+<tr><td><b>勞退帳戶</b></td><td>雇主每月提撥 6% 到個人帳戶，退休後領回</td></tr>
+<tr><td><b>壓力測試</b></td><td>模擬最壞情況：報酬率只有 3% 時錢夠嗎</td></tr>
+</table>
+</details>
+</div>
+</div>
+
+<script>
+const BRACKETS=[[0,590000,0.05],[590000,1330000,0.12],[1330000,2660000,0.20],[2660000,4980000,0.30],[4980000,Infinity,0.40]];
+const STOCKS=[
+{sym:"0050.TW",name:"元大台灣50",shares:50,cost:120.00,price:125.50},
+{sym:"0056.TW",name:"元大高股息",shares:500,cost:30.50,price:32.80},
+{sym:"2330.TW",name:"台積電",shares:2,cost:550.00,price:580.00},
+{sym:"2412.TW",name:"中華電",shares:100,cost:120.00,price:125.00},
+{sym:"AAPL",name:"蘋果",shares:5,cost:170.00,price:185.00}
+];
+
+// 動態開銷清單
+let expenses=[
+  {name:'房租',amount:15000},
+  {name:'生活費',amount:18000},
+  {name:'保險',amount:3000},
+  {name:'交通',amount:2000},
+  {name:'娛樂',amount:3000},
+  {name:'雜項',amount:2000}
+];
+// 動態加碼清單
+let bonuses=[
+  {name:'退稅投入(8月)',amount:20000},
+  {name:'年終獎金投入',amount:30000}
+];
+
+let growthChart,stressChart,pieChart;
+const fmt=n=>{if(Math.abs(n)>=1e8)return(n/1e8).toFixed(1)+"億";if(Math.abs(n)>=1e4)return(n/1e4).toFixed(1)+"萬";return n.toLocaleString()};
+const fmtFull=n=>n.toLocaleString("zh-TW",{maximumFractionDigits:0});
+const $=id=>document.getElementById(id);
+function g(id){return parseFloat($(id).value)}
+function toggleSidebar(){$('sidebar').classList.toggle('open');$('overlay').classList.toggle('open')}
+function toggleSection(el){el.parentElement.classList.toggle('collapsed')}
+function switchTab(i){
+  document.querySelectorAll('.tab').forEach((t,j)=>t.classList.toggle('active',j===i));
+  ['tabGrowth','tabStress','tabDetail','tabRetire','tabStocks'].forEach((id,j)=>$(id).classList.toggle('active',j===i));
+}
+
+function renderExpenses(){
+  let html='';
+  expenses.forEach((e,i)=>{
+    html+=`<div class="dyn-item">
+      <input type="text" value="${e.name}" onchange="expenses[${i}].name=this.value">
+      <input type="number" value="${e.amount}" min="0" step="500" onchange="expenses[${i}].amount=parseInt(this.value)||0;update()">
+      <button onclick="expenses.splice(${i},1);renderExpenses();update()">✕</button></div>`;
+  });
+  $('expenseList').innerHTML=html;
+  const total=expenses.reduce((s,e)=>s+e.amount,0);
+  $('expenseTotal').textContent='合計：$'+fmtFull(total)+'/月';
+}
+function addExpense(){expenses.push({name:'新項目',amount:0});renderExpenses()}
+
+function renderBonuses(){
+  let html='';
+  bonuses.forEach((b,i)=>{
+    html+=`<div class="dyn-item">
+      <input type="text" value="${b.name}" onchange="bonuses[${i}].name=this.value">
+      <input type="number" value="${b.amount}" min="0" step="5000" onchange="bonuses[${i}].amount=parseInt(this.value)||0;update()">
+      <button onclick="bonuses.splice(${i},1);renderBonuses();update()">✕</button></div>`;
+  });
+  $('bonusList').innerHTML=html;
+  const total=bonuses.reduce((s,b)=>s+b.amount,0);
+  $('bonusTotal').textContent='年度加碼合計：$'+fmtFull(total);
+}
+function addBonus(){bonuses.push({name:'新項目',amount:0});renderBonuses()}
+
+function calcTax(gross,deps,rent,useRentDed){
+  const exemption=(1+deps)*101000;
+  const rentDed=useRentDed?Math.min(rent*12,180000):0;
+  const deductions=136000+227000+rentDed;
+  let taxable=Math.max(0,gross-exemption-deductions);
+  let tax=0;
+  for(const[lo,hi,rate]of BRACKETS){
+    if(taxable<=0)break;
+    const w=hi-lo,t=Math.min(taxable,w);
+    tax+=t*rate;taxable-=t;
+  }
+  return Math.round(tax);
+}
+
+function getStockMV(){return STOCKS.reduce((s,st)=>s+Math.round(st.shares*st.price),0)}
+
+// 勞保年金計算：投保薪資 × 年資 × 1.55%（選擇較優的B式）
+// 提前/延後：每提前1年扣4%，每延後1年加4%，最多+20%
+function calcPension(years,salary,retireAge){
+  const normalAge=65;
+  const base=Math.round(salary*years*0.0155);
+  const diff=retireAge-normalAge;
+  let adjust=1;
+  if(diff<0)adjust=Math.max(0,1+diff*0.04); // 提前每年-4%
+  if(diff>0)adjust=Math.min(1.2,1+diff*0.04); // 延後每年+4%，上限20%
+  return{monthly:Math.round(base*adjust),base,adjust,diff};
+}
+
+// 勞退月領計算：(已累積 + 未來提撥累積) / 請領月數(依平均餘命)
+// 未來提撥 = 月薪 × 提撥率% × 剩餘月數（簡化，不含投資收益）
+// 請領月數：65歲退休約 240個月(20年)
+function calcLaborRet(accum,salary,retRate,currentAge,retireAge){
+  const monthsToRetire=Math.max(0,(retireAge-currentAge)*12);
+  const monthlyContrib=Math.round(salary*retRate/100);
+  const futureContrib=monthlyContrib*monthsToRetire;
+  const totalAccum=accum+futureContrib;
+  // 平均餘命請領月數（簡化：65歲約240月，每早退1年+12月）
+  const lifeExpectMonths=Math.max(120,240+(65-retireAge)*12);
+  const monthly=Math.round(totalAccum/lifeExpectMonths);
+  return{monthly,totalAccum,futureContrib,monthlyContrib,lifeExpectMonths};
+}
+
+function simulate(salary,retAge,currentAge,deps,rent,recvSub,p1,p1y,p2,roi,bal,totalBonus,totalExp,pen,labR){
+  const years=retAge-currentAge;
+  if(years<=0)return{snapshots:[],finalPortfolio:0,swrMonthly:0,pension:pen,laborRet:labR,totalPassive:pen+labR,monthlyExp:totalExp,coverage:0,annualTax:0,monthlyTax:0};
+  const gross=salary*12;
+  const useRentDed=!recvSub;
+  const annualTax=calcTax(gross,deps,rent,useRentDed);
+  const monthlyTax=Math.round(annualTax/12);
+  const monthlyRate=Math.pow(1+roi/100,1/12)-1;
+  const snapshots=[];
+  let portfolio=bal;
+  for(let y=0;y<years;y++){
+    const age=currentAge+y;
+    const mc=y<p1y?p1:p2;
+    let contrib=0;
+    for(let m=1;m<=12;m++){
+      portfolio+=mc;contrib+=mc;
+      if(m===8){portfolio+=totalBonus;contrib+=totalBonus}
+      portfolio*=(1+monthlyRate);
+    }
+    const surplus=salary-monthlyTax-mc-totalExp;
+    snapshots.push({age,year:2026-currentAge+age,gross,annualTax,contrib,totalExp:totalExp*12,portfolio:Math.round(portfolio),surplus});
+  }
+  const swrMonthly=Math.round(portfolio*0.04/12);
+  const totalPassive=swrMonthly+pen+labR;
+  const coverage=totalExp>0?totalPassive/totalExp:0;
+  return{snapshots,finalPortfolio:Math.round(portfolio),swrMonthly,pension:pen,laborRet:labR,totalPassive,monthlyExp:totalExp,coverage,annualTax,monthlyTax};
+}
+
+function update(){
+  const s=g('salary'),ra=g('retireAge'),by=g('birthYear');
+  const currentAge=2026-by;
+  const d=g('dependents'),r=g('monthlyRent'),sub=$('receiveSubsidy').checked;
+  const p1=g('phase1'),p1y=g('phase1y'),p2=g('phase2'),roi=g('roi'),bal=g('balance');
+  const totalExp=expenses.reduce((s,e)=>s+e.amount,0);
+  const totalBonus=bonuses.reduce((s,b)=>s+b.amount,0);
+  const stockMV=getStockMV();
+
+  // 勞保自動計算
+  const pensionYears=g('pensionYears');
+  const pensionSalary=g('pensionSalary');
+  const penResult=calcPension(pensionYears,pensionSalary,ra);
+  const pen=penResult.monthly;
+  $('pensionCalc').textContent='$'+fmtFull(pen)+'/月';
+  const diffText=penResult.diff===0?'(法定65歲)':penResult.diff<0?`(提前${Math.abs(penResult.diff)}年，${(penResult.adjust*100).toFixed(0)}%)`:`(延後${penResult.diff}年，${(penResult.adjust*100).toFixed(0)}%)`;
+  $('pensionFormula').textContent=`$${fmtFull(pensionSalary)} × ${pensionYears}年 × 1.55% ${diffText}`;
+
+  // 勞退自動計算
+  const laborRetAccum=g('laborRetAccum');
+  const laborRetRate=g('laborRetRate');
+  const lrResult=calcLaborRet(laborRetAccum,s,laborRetRate,currentAge,ra);
+  const lr=lrResult.monthly;
+  $('laborRetCalc').textContent='$'+fmtFull(lr)+'/月';
+  $('laborRetFormula').textContent=`已累積$${fmt(laborRetAccum)} + 未來提撥$${fmt(lrResult.futureContrib)} ÷ ${lrResult.lifeExpectMonths}月`;
+  $('laborRetRateVal').textContent=laborRetRate+'%';
+
+  // Display values
+  $('salaryVal').textContent='$'+fmtFull(s);
+  $('retireAgeVal').textContent=ra+' 歲 (現'+currentAge+'歲，還'+(ra-currentAge)+'年)';
+  $('dependentsVal').textContent=d+' 人';
+  $('monthlyRentVal').textContent='$'+fmtFull(r);
+  $('phase1Val').textContent='$'+fmtFull(p1);
+  $('phase1yVal').textContent=p1y+' 年';
+  $('phase2Val').textContent='$'+fmtFull(p2);
+  $('roiVal').textContent=roi+'%';
+
+  const res=simulate(s,ra,currentAge,d,r,sub,p1,p1y,p2,roi,bal,totalBonus,totalExp,pen,lr);
+  const sn=res.snapshots;
+  if(!sn.length){$('readiness').innerHTML='<span class="badge badge-red">請確認退休年齡大於現在年齡</span>';return}
+
+  // Readiness
+  let bc,bt,bd;
+  if(res.coverage>=1.5){bc='badge-green';bt='財務自由';bd='被動收入遠超支出！'}
+  else if(res.coverage>=1.0){bc='badge-yellow';bt='基本達標';bd='剛好覆蓋開銷，建議再加碼'}
+  else{bc='badge-red';bt='尚有缺口';bd='需提高投資或降低開銷'}
+  $('readiness').innerHTML=`<span class="badge ${bc}">${bt}</span> ${bd}`;
+
+  // KPIs (6 cards including stock value)
+  $('kpis').innerHTML=`
+    <div class="kpi"><div class="label">每月結餘</div><div class="value">$${fmtFull(sn[0].surplus)}</div></div>
+    <div class="kpi"><div class="label">年繳所得稅</div><div class="value">$${fmtFull(res.annualTax)}</div></div>
+    <div class="kpi"><div class="label">股票持倉市值</div><div class="value">$${fmt(stockMV)}</div></div>
+    <div class="kpi"><div class="label">${ra}歲總資產</div><div class="value">$${fmt(res.finalPortfolio)}</div></div>
+    <div class="kpi"><div class="label">退休月被動收入</div><div class="value">$${fmtFull(res.totalPassive)}</div></div>
+    <div class="kpi"><div class="label">開銷覆蓋率</div><div class="value">${res.coverage.toFixed(1)} 倍</div></div>`;
+
+  // Growth chart
+  const ages=sn.map(s=>s.age),ports=sn.map(s=>s.portfolio);
+  let cumC=bal;const contribs=sn.map(s=>{cumC+=s.contrib;return cumC});
+  if(growthChart)growthChart.destroy();
+  growthChart=new Chart($('growthChart'),{type:'line',data:{labels:ages,datasets:[
+    {label:'投資組合',data:ports,borderColor:'#636EFA',backgroundColor:'rgba(99,110,250,0.1)',fill:true,borderWidth:3,pointRadius:4,tension:0.3},
+    {label:'累計投入',data:contribs,borderColor:'rgba(99,110,250,0.4)',borderDash:[5,5],borderWidth:1,pointRadius:0,fill:false,tension:0.3}
+  ]},options:{responsive:true,plugins:{legend:{position:'top'}},scales:{x:{title:{display:true,text:'年齡'}},y:{title:{display:true,text:'NTD'},ticks:{callback:v=>fmt(v)}}}}});
+
+  const totalContrib=contribs[contribs.length-1],finalP=ports[ports.length-1];
+  const growth=finalP-totalContrib,growthPct=totalContrib>0?(growth/totalContrib*100):0;
+  $('growthInsight').innerHTML=`
+    <div class="kpi"><div class="label">累計投入</div><div class="value">$${fmt(totalContrib)}</div></div>
+    <div class="kpi"><div class="label">投資增值</div><div class="value">$${fmt(growth)}</div><div class="delta pl-pos">+${growthPct.toFixed(0)}%</div></div>
+    <div class="kpi"><div class="label">複利倍數</div><div class="value">${totalContrib>0?(finalP/totalContrib).toFixed(2):'N/A'}x</div></div>`;
+
+  // Stress test
+  const testRois=[3,5,7,9,11],colors=['#EF553B','#FFA15A','#636EFA','#00CC96','#AB63FA'];
+  const stressData=testRois.map((tr,i)=>{
+    const r2=simulate(s,ra,currentAge,d,r,sub,p1,p1y,p2,tr,bal,totalBonus,totalExp,pen,lr);
+    return{roi:tr,data:r2.snapshots.map(s=>s.portfolio),final:r2.finalPortfolio,passive:r2.totalPassive,cov:r2.coverage,color:colors[i]};
+  });
+  if(stressChart)stressChart.destroy();
+  stressChart=new Chart($('stressChart'),{type:'line',data:{labels:ages,datasets:stressData.map(d=>({
+    label:`ROI ${d.roi}%`+(Math.abs(d.roi-roi)<0.01?' ← 你的設定':''),
+    data:d.data,borderColor:d.color,borderWidth:Math.abs(d.roi-roi)<0.01?4:2,
+    pointRadius:Math.abs(d.roi-roi)<0.01?4:0,fill:false,tension:0.3
+  }))},options:{responsive:true,plugins:{legend:{position:'top'}},scales:{x:{title:{display:true,text:'年齡'}},y:{title:{display:true,text:'NTD'},ticks:{callback:v=>fmt(v)}}}}});
+  let stHTML='<table><tr><th>報酬率</th><th>退休資產</th><th>月被動收入</th><th>覆蓋率</th></tr>';
+  stressData.forEach(d=>{stHTML+=`<tr><td style="text-align:left">${d.roi}%</td><td>$${fmt(d.final)}</td><td>$${fmtFull(d.passive)}</td><td>${d.cov.toFixed(1)}x</td></tr>`});
+  stHTML+='</table>';$('stressTable').innerHTML=stHTML;
+
+  // Detail
+  let dtHTML='<table><tr><th>年齡</th><th>年收入</th><th>年稅額</th><th>年投資</th><th>年開銷</th><th>年末資產</th><th>月結餘</th></tr>';
+  sn.forEach(s=>{dtHTML+=`<tr><td style="text-align:left">${s.age}</td><td>$${fmtFull(s.gross)}</td><td>$${fmtFull(s.annualTax)}</td><td>$${fmtFull(s.contrib)}</td><td>$${fmtFull(s.totalExp)}</td><td>$${fmtFull(s.portfolio)}</td><td>$${fmtFull(s.surplus)}</td></tr>`});
+  dtHTML+='</table>';$('detailTable').innerHTML=dtHTML;
+
+  // Retire summary
+  const net=res.totalPassive-res.monthlyExp;
+  $('retireSummary').innerHTML=`
+    <h2>${ra} 歲退休收入摘要</h2>
+    <div class="summary-row"><span>投資組合總值</span><span>$${fmtFull(res.finalPortfolio)}</span></div>
+    <div class="summary-row"><span>4% 安全提領 (月)</span><span>$${fmtFull(res.swrMonthly)}</span></div>
+    <div class="summary-row"><span>勞保年金 [年資${pensionYears}年，投保$${fmtFull(pensionSalary)}]</span><span>$${fmtFull(pen)}/月</span></div>
+    <div class="summary-row"><span>勞退月領 [累積$${fmt(lrResult.totalAccum)}÷${lrResult.lifeExpectMonths}月]</span><span>$${fmtFull(lr)}/月</span></div>
+    <div class="summary-row"><span>每月被動收入合計</span><span>$${fmtFull(res.totalPassive)}</span></div>
+    <div class="summary-row"><span>每月開銷 (${expenses.length}項)</span><span>$${fmtFull(res.monthlyExp)}</span></div>
+    <div class="summary-row"><span>每月${net>=0?'盈餘':'缺口'}</span><span class="${net>=0?'pl-pos':'pl-neg'}">$${fmtFull(Math.abs(net))}</span></div>`;
+
+  // Pie
+  const mc0=sn.length>0?(sn[0].age<currentAge+p1y?p1:p2):p1;
+  const pieData=[res.monthlyTax,mc0,...expenses.map(e=>e.amount),Math.max(0,sn[0].surplus)];
+  const pieLabels=['所得稅','投資',...expenses.map(e=>e.name),'結餘'];
+  const pColors=['#EF553B','#636EFA','#FFA15A','#00CC96','#AB63FA','#19D3F3','#FF6692','#B6E880','#FF97FF','#FECB52'];
+  if(pieChart)pieChart.destroy();
+  pieChart=new Chart($('pieChart'),{type:'doughnut',data:{labels:pieLabels,datasets:[{data:pieData,backgroundColor:pColors.slice(0,pieLabels.length)}]},options:{responsive:true,plugins:{title:{display:true,text:'每月薪資分配'},legend:{position:'bottom'}}}});
+
+  renderStocks();
+}
+
+function renderStocks(){
+  let html='<table class="stock-table"><tr><th>股票</th><th>股數</th><th>成本</th><th>現價</th><th>市值</th><th>損益</th><th>損益率</th><th>今日</th></tr>';
+  let totalMV=0,totalCost=0;
+  STOCKS.forEach((s,i)=>{
+    const mv=Math.round(s.shares*s.price),cost=Math.round(s.shares*s.cost);
+    const pl=mv-cost,plPct=cost>0?(pl/cost*100):0;
+    totalMV+=mv;totalCost+=cost;
+    const plC=pl>=0?'pl-pos':'pl-neg',chg=s.changePct||0,chgC=chg>=0?'pl-pos':'pl-neg';
+    html+=`<tr><td style="text-align:left"><b>${s.name}</b><br><small>${s.sym}</small></td>
+      <td>${s.shares.toLocaleString()}</td><td>$${s.cost.toFixed(1)}</td>
+      <td><input type="number" value="${s.price}" step="0.01" onchange="STOCKS[${i}].price=parseFloat(this.value);renderStocks();update()"></td>
+      <td>$${fmtFull(mv)}</td><td class="${plC}">$${fmtFull(pl)}</td>
+      <td class="${plC}">${plPct>=0?'+':''}${plPct.toFixed(1)}%</td>
+      <td class="${chgC}">${chg>=0?'+':''}${chg.toFixed(1)}%</td></tr>`;
+  });
+  const totalPL=totalMV-totalCost,totalPLPct=totalCost>0?(totalPL/totalCost*100):0;
+  html+=`<tr style="font-weight:700;border-top:2px solid var(--border)">
+    <td style="text-align:left">合計</td><td></td><td></td><td></td>
+    <td>$${fmtFull(totalMV)}</td><td></td>
+    <td class="${totalPL>=0?'pl-pos':'pl-neg'}">$${fmtFull(totalPL)} (${totalPLPct>=0?'+':''}${totalPLPct.toFixed(1)}%)</td><td></td></tr>`;
+  html+='</table>';
+  html+=`<div class="info-box">持倉總市值 <b>$${fmtFull(totalMV)}</b>。如需納入退休試算，請將左側「目前帳戶餘額」設為包含此金額的數字。</div>`;
+  $('stockSection').innerHTML=html;
+}
+
+async function fetchStockPrices(){
+  const statusEl=$('fetchStatus'),updateEl=$('lastUpdate');
+  statusEl.innerHTML='<div class="info-box">⏳ 正在抓取即時股價...</div>';
+  const symbols=STOCKS.map(s=>s.sym).join(',');
+  const proxyUrl='https://api.allorigins.win/raw?url='+encodeURIComponent(
+    'https://query1.finance.yahoo.com/v7/finance/quote?symbols='+symbols+'&fields=regularMarketPrice,shortName,regularMarketChangePercent'
+  );
+  try{
+    const resp=await fetch(proxyUrl,{signal:AbortSignal.timeout(15000)});
+    if(!resp.ok)throw new Error('HTTP '+resp.status);
+    const data=await resp.json();
+    const results=data?.quoteResponse?.result||[];
+    if(!results.length)throw new Error('No data');
+    let updated=0;
+    results.forEach(q=>{
+      const stock=STOCKS.find(s=>s.sym===q.symbol);
+      if(stock&&q.regularMarketPrice){stock.price=q.regularMarketPrice;stock.changePct=q.regularMarketChangePercent||0;updated++}
+    });
+    const now=new Date();
+    updateEl.textContent='最後更新: '+now.toLocaleTimeString('zh-TW',{hour:'2-digit',minute:'2-digit'})+' ('+updated+'/'+STOCKS.length+')';
+    statusEl.innerHTML='<div class="info-box" style="background:#d4edda;border-color:#c3e6cb">✅ 已更新 '+updated+' 檔股價</div>';
+    setTimeout(()=>{statusEl.innerHTML=''},3000);
+    renderStocks();update();
+  }catch(e){
+    statusEl.innerHTML='<div class="info-box" style="background:#f8d7da;border-color:#f5c6cb">❌ 抓取失敗：'+e.message+'。可手動輸入。</div>';
+    setTimeout(()=>{statusEl.innerHTML=''},5000);
+  }
+}
+
+setInterval(fetchStockPrices,3600000);
+renderExpenses();
+renderBonuses();
+update();
+setTimeout(fetchStockPrices,1000);
+</script>
+</body>
+</html>
