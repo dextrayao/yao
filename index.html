@@ -224,11 +224,24 @@ const STOCKS=[
 
 // 動態開銷清單
 let expenses=[
-  {name:'房租',amount:18000},
-  {name:'生活費',amount:25000},
-  {name:'保險',amount:5000},
-  {name:'交通',amount:3000},
-  {name:'雜項',amount:2000}
+  // 1. 固定生存支出
+  {name:'房屋租金',amount:18000},
+  {name:'電費(含公電)',amount:4000},
+  {name:'水費/瓦斯費',amount:1000},
+  // 2. 個人生活品質
+  {name:'伙食費',amount:5000},
+  {name:'交通費(含油資保養)',amount:4000},
+  {name:'行動電話/光纖網路',amount:5000},
+  {name:'娛樂日用品',amount:20000},
+  {name:'娛樂/運動/訂閱',amount:3000},
+  // 3. 家庭責任
+  {name:'舞蹈費用',amount:3000},
+  {name:'子女生活/零用錢',amount:10000},
+  // 4. 法定扣項與保險
+  {name:'健保費(本人+2子)',amount:3600},
+  {name:'太太國民年金',amount:1600},
+  {name:'勞保費(自付額)',amount:1200},
+  {name:'所得稅預扣(公司代扣)',amount:6250}
 ];
 // 動態加碼清單
 let bonuses=[
