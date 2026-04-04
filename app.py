@@ -177,8 +177,8 @@ def main():
             )
             annual_roi_decimal = annual_roi / 100
             current_balance = st.number_input(
-                "目前帳戶餘額", value=0, min_value=0, step=100_000,
-                help="你現有的投資組合總值",
+                "目前帳戶餘額", value=536_000, min_value=0, step=100_000,
+                help="你現有的投資組合總值 (含台股 516,560 + 美股約 20,053)",
             )
 
         # — 開銷 —
@@ -521,7 +521,19 @@ def main():
 
         # 持股輸入區
         if "stock_holdings" not in st.session_state:
-            st.session_state.stock_holdings = []
+            st.session_state.stock_holdings = [
+                # 台股
+                {"symbol": "0050.TW",   "shares": 77,    "cost": 75.44},    # 元大台灣50
+                {"symbol": "006208.TW", "shares": 978,   "cost": 137.50},   # 富邦台50
+                {"symbol": "00878.TW",  "shares": 3862,  "cost": 19.14},    # 國泰永續高股息
+                {"symbol": "00895.TW",  "shares": 2892,  "cost": 30.94},    # 富邦未來車
+                {"symbol": "2317.TW",   "shares": 65,    "cost": 224.45},   # 鴻海
+                {"symbol": "2330.TW",   "shares": 3,     "cost": 1856.33},  # 台積電
+                {"symbol": "6534.TW",   "shares": 1416,  "cost": 81.96},    # 正瀚創
+                # 美股
+                {"symbol": "NVDA",      "shares": 2,     "cost": 179.00},   # 輝達
+                {"symbol": "SCHD",      "shares": 9,     "cost": 30.60},    # Schwab 美國高股息
+            ]
 
         with st.expander("新增股票", expanded=True):
             scol1, scol2, scol3, scol4 = st.columns([2, 1, 1, 1])
