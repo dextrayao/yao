@@ -8,6 +8,7 @@ from engines.tax_engine import TaxEngine, TaxParams
 from engines.subsidy_engine import SubsidyEngine, SubsidyParams
 from engines.invest_engine import InvestEngine, InvestParams, InvestPhase
 from engines.cashflow_engine import CashflowEngine, CashflowParams
+from engines.stock_engine import StockEngine, StockHolding
 from simulator import RetirementSimulator, RetirementParams
 
 
@@ -249,11 +250,12 @@ def main():
         st.metric("開銷覆蓋率", f"{ratio:.1f} 倍")
 
     # ── 主要圖表區 ───────────────────────────────────────────
-    tab1, tab2, tab3, tab4 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "📈 資產成長曲線",
         "🔬 壓力測試",
         "📋 年度明細",
         "🧮 退休收入拆解",
+        "📊 股票持倉",
     ])
 
     # ── Tab 1: 資產成長 ──────────────────────────────────────
@@ -512,6 +514,142 @@ def main():
             else:
                 st.success(f"投資占薪資 {invest_pct:.0f}%，積極配置，注意保留緊急備用金")
 
+    # ── Tab 5: 股票持倉 ─────────────────────────────────────
+    with tab5:
+        st.markdown("#### 我的股票持倉")
+        st.caption("輸入你持有的股票，自動抓取即時股價計算市值。台股代號加 .TW（例：2330.TW），美股直接輸入（例：AAPL）")
+
+        # 持股輸入區
+        if "stock_holdings" not in st.session_state:
+            st.session_state.stock_holdings = []
+
+        with st.expander("新增股票", expanded=True):
+            scol1, scol2, scol3, scol4 = st.columns([2, 1, 1, 1])
+            with scol1:
+                new_symbol = st.text_input("股票代號", placeholder="例: 2330.TW", key="new_symbol")
+            with scol2:
+                new_shares = st.number_input("持有股數", min_value=0.0, value=0.0, step=1.0, key="new_shares")
+            with scol3:
+                new_cost = st.number_input("買入均價", min_value=0.0, value=0.0, step=1.0, key="new_cost")
+            with scol4:
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("新增", type="primary", use_container_width=True):
+                    if new_symbol.strip() and new_shares > 0:
+                        st.session_state.stock_holdings.append({
+                            "symbol": new_symbol.strip().upper(),
+                            "shares": new_shares,
+                            "cost": new_cost,
+                        })
+                        st.rerun()
+
+        # 顯示已輸入的持股清單 & 允許刪除
+        if st.session_state.stock_holdings:
+            holdings_df = pd.DataFrame(st.session_state.stock_holdings)
+            holdings_df.columns = ["股票代號", "持有股數", "買入均價"]
+
+            ecol1, ecol2 = st.columns([3, 1])
+            with ecol1:
+                st.dataframe(holdings_df, use_container_width=True, hide_index=True)
+            with ecol2:
+                delete_idx = st.selectbox(
+                    "選擇要刪除的股票",
+                    options=range(len(st.session_state.stock_holdings)),
+                    format_func=lambda i: st.session_state.stock_holdings[i]["symbol"],
+                    key="delete_stock_idx",
+                )
+                if st.button("刪除選取", type="secondary"):
+                    st.session_state.stock_holdings.pop(delete_idx)
+                    st.rerun()
+
+            # 建立 StockEngine 並抓取報價
+            stock_engine = StockEngine([
+                StockHolding(
+                    symbol=h["symbol"],
+                    shares=h["shares"],
+                    cost_per_share=h["cost"],
+                )
+                for h in st.session_state.stock_holdings
+            ])
+
+            with st.spinner("正在抓取即時股價..."):
+                quotes = stock_engine.fetch_quotes()
+
+            if quotes:
+                positions = stock_engine.get_positions()
+                if positions:
+                    # KPI
+                    total_mv = stock_engine.total_market_value()
+                    total_pl = stock_engine.total_profit_loss()
+                    total_cost = sum(p.cost_basis for p in positions)
+                    total_pl_pct = (total_pl / total_cost * 100) if total_cost > 0 else 0
+
+                    sk1, sk2, sk3 = st.columns(3)
+                    with sk1:
+                        st.metric("持倉總市值", f"${fmt(total_mv)}")
+                    with sk2:
+                        st.metric("總損益", f"${fmt(total_pl)}", f"{total_pl_pct:+.1f}%")
+                    with sk3:
+                        st.metric(
+                            "佔退休目標比例",
+                            f"{total_mv / summary['final_portfolio'] * 100:.1f}%"
+                            if summary["final_portfolio"] > 0 else "N/A",
+                        )
+
+                    # 持倉明細表
+                    pos_data = []
+                    for p in positions:
+                        pos_data.append({
+                            "股票": f"{p.symbol} ({p.name})",
+                            "股數": p.shares,
+                            "現價": p.price,
+                            "市值": p.market_value,
+                            "成本": p.cost_basis,
+                            "損益": p.profit_loss,
+                            "損益率": f"{p.profit_loss_pct:+.1f}%",
+                            "今日漲跌": f"{p.change_pct:+.1f}%",
+                        })
+
+                    pos_df = pd.DataFrame(pos_data)
+                    st.dataframe(
+                        pos_df.style.format({
+                            "股數": "{:,.0f}",
+                            "現價": "${:,.2f}",
+                            "市值": "${:,.0f}",
+                            "成本": "${:,.0f}",
+                            "損益": "${:,.0f}",
+                        }),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+
+                    # 持倉圓餅圖
+                    if len(positions) > 1:
+                        stock_pie = go.Figure(data=[go.Pie(
+                            labels=[p.symbol for p in positions],
+                            values=[p.market_value for p in positions],
+                            hole=0.4,
+                            textinfo="label+percent",
+                            hovertemplate="%{label}: $%{value:,.0f} (%{percent})<extra></extra>",
+                        )])
+                        stock_pie.update_layout(
+                            title="持倉分布",
+                            height=350,
+                            margin=dict(l=10, r=10, t=40, b=10),
+                        )
+                        st.plotly_chart(stock_pie, use_container_width=True)
+
+                    # 提示：將股票市值加入投資餘額
+                    st.info(
+                        f"提示：你的股票持倉市值為 **${fmt(total_mv)}**。"
+                        f"如果要納入退休試算，可以將左側「目前帳戶餘額」設為 **${fmt(current_balance + total_mv)}**"
+                    )
+                else:
+                    st.warning("無法取得報價，請確認股票代號是否正確。")
+            else:
+                st.warning("無法連線至 Yahoo Finance，請稍後再試。你也可以繼續使用其他功能。")
+        else:
+            st.info("尚未新增任何股票。點擊上方「新增」按鈕開始建立你的持倉清單。")
+
     # ── 底部小白指南 ─────────────────────────────────────────
     st.divider()
     with st.expander("💡 新手指南：看不懂？點這裡", expanded=False):
@@ -534,6 +672,7 @@ def main():
         | **勞保年金** | 政府每月發的退休金，依你的投保年資與薪資計算 |
         | **勞退月領** | 雇主每月幫你提撥 6% 到個人帳戶，退休後分期領回 |
         | **壓力測試** | 模擬最壞情況：如果投資報酬率只有 3%，你的錢夠嗎？ |
+        | **股票持倉** | 輸入你買的股票，自動算出總市值和損益 |
 
         ---
 
