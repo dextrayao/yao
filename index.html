@@ -136,10 +136,21 @@ tr:hover{background:#f8f9fb}
 <div class="section">
 <div class="section-title" onclick="toggleSection(this)">🏦 勞保勞退</div>
 <div class="section-body">
-<div class="field"><label>勞保年金 - 預估月領</label><input type="range" id="pension" min="0" max="50000" step="1000" value="26000" oninput="update()"><div class="val" id="pensionVal"></div></div>
-<div class="field"><label>勞保已累積年資 (年)</label><input type="number" id="pensionYears" value="25" min="0" max="45" oninput="update()"></div>
-<div class="field"><label>勞退 - 預估月領</label><input type="range" id="laborRet" min="0" max="30000" step="500" value="13500" oninput="update()"><div class="val" id="laborRetVal"></div></div>
-<div class="field"><label>勞退帳戶已累積 (NTD)</label><input type="number" id="laborRetAccum" value="0" min="0" step="10000" oninput="update()"></div>
+<div class="field"><label>勞保已累積年資 (年)</label><input type="number" id="pensionYears" value="15" min="0" max="45" oninput="update()"></div>
+<div class="field"><label>勞保最高投保薪資</label><input type="number" id="pensionSalary" value="45800" min="0" step="100" oninput="update()"></div>
+<div style="background:#f8f9fb;border-radius:8px;padding:10px;margin-bottom:12px">
+<div style="font-size:0.8rem;color:var(--muted)">勞保年金自動試算 (月領)</div>
+<div style="font-size:1.2rem;font-weight:700;color:var(--primary)" id="pensionCalc"></div>
+<div style="font-size:0.75rem;color:var(--muted)" id="pensionFormula"></div>
+</div>
+<hr style="border:none;border-top:1px solid var(--border);margin:12px 0">
+<div class="field"><label>勞退帳戶已累積 (NTD)</label><input type="number" id="laborRetAccum" value="900000" min="0" step="10000" oninput="update()"></div>
+<div class="field"><label>每月雇主提撥率 (%)</label><input type="range" id="laborRetRate" min="6" max="12" step="1" value="6" oninput="update()"><div class="val" id="laborRetRateVal"></div></div>
+<div style="background:#f8f9fb;border-radius:8px;padding:10px;margin-bottom:12px">
+<div style="font-size:0.8rem;color:var(--muted)">勞退月領自動試算</div>
+<div style="font-size:1.2rem;font-weight:700;color:var(--primary)" id="laborRetCalc"></div>
+<div style="font-size:0.75rem;color:var(--muted)" id="laborRetFormula"></div>
+</div>
 </div></div>
 </div>
 
@@ -278,6 +289,32 @@ function calcTax(gross,deps,rent,useRentDed){
 
 function getStockMV(){return STOCKS.reduce((s,st)=>s+Math.round(st.shares*st.price),0)}
 
+// 勞保年金計算：投保薪資 × 年資 × 1.55%（選擇較優的B式）
+// 提前/延後：每提前1年扣4%，每延後1年加4%，最多+20%
+function calcPension(years,salary,retireAge){
+  const normalAge=65;
+  const base=Math.round(salary*years*0.0155);
+  const diff=retireAge-normalAge;
+  let adjust=1;
+  if(diff<0)adjust=Math.max(0,1+diff*0.04); // 提前每年-4%
+  if(diff>0)adjust=Math.min(1.2,1+diff*0.04); // 延後每年+4%，上限20%
+  return{monthly:Math.round(base*adjust),base,adjust,diff};
+}
+
+// 勞退月領計算：(已累積 + 未來提撥累積) / 請領月數(依平均餘命)
+// 未來提撥 = 月薪 × 提撥率% × 剩餘月數（簡化，不含投資收益）
+// 請領月數：65歲退休約 240個月(20年)
+function calcLaborRet(accum,salary,retRate,currentAge,retireAge){
+  const monthsToRetire=Math.max(0,(retireAge-currentAge)*12);
+  const monthlyContrib=Math.round(salary*retRate/100);
+  const futureContrib=monthlyContrib*monthsToRetire;
+  const totalAccum=accum+futureContrib;
+  // 平均餘命請領月數（簡化：65歲約240月，每早退1年+12月）
+  const lifeExpectMonths=Math.max(120,240+(65-retireAge)*12);
+  const monthly=Math.round(totalAccum/lifeExpectMonths);
+  return{monthly,totalAccum,futureContrib,monthlyContrib,lifeExpectMonths};
+}
+
 function simulate(salary,retAge,currentAge,deps,rent,recvSub,p1,p1y,p2,roi,bal,totalBonus,totalExp,pen,labR){
   const years=retAge-currentAge;
   if(years<=0)return{snapshots:[],finalPortfolio:0,swrMonthly:0,pension:pen,laborRet:labR,totalPassive:pen+labR,monthlyExp:totalExp,coverage:0,annualTax:0,monthlyTax:0};
@@ -311,10 +348,27 @@ function update(){
   const currentAge=2026-by;
   const d=g('dependents'),r=g('monthlyRent'),sub=$('receiveSubsidy').checked;
   const p1=g('phase1'),p1y=g('phase1y'),p2=g('phase2'),roi=g('roi'),bal=g('balance');
-  const pen=g('pension'),lr=g('laborRet');
   const totalExp=expenses.reduce((s,e)=>s+e.amount,0);
   const totalBonus=bonuses.reduce((s,b)=>s+b.amount,0);
   const stockMV=getStockMV();
+
+  // 勞保自動計算
+  const pensionYears=g('pensionYears');
+  const pensionSalary=g('pensionSalary');
+  const penResult=calcPension(pensionYears,pensionSalary,ra);
+  const pen=penResult.monthly;
+  $('pensionCalc').textContent='$'+fmtFull(pen)+'/月';
+  const diffText=penResult.diff===0?'(法定65歲)':penResult.diff<0?`(提前${Math.abs(penResult.diff)}年，${(penResult.adjust*100).toFixed(0)}%)`:`(延後${penResult.diff}年，${(penResult.adjust*100).toFixed(0)}%)`;
+  $('pensionFormula').textContent=`$${fmtFull(pensionSalary)} × ${pensionYears}年 × 1.55% ${diffText}`;
+
+  // 勞退自動計算
+  const laborRetAccum=g('laborRetAccum');
+  const laborRetRate=g('laborRetRate');
+  const lrResult=calcLaborRet(laborRetAccum,s,laborRetRate,currentAge,ra);
+  const lr=lrResult.monthly;
+  $('laborRetCalc').textContent='$'+fmtFull(lr)+'/月';
+  $('laborRetFormula').textContent=`已累積$${fmt(laborRetAccum)} + 未來提撥$${fmt(lrResult.futureContrib)} ÷ ${lrResult.lifeExpectMonths}月`;
+  $('laborRetRateVal').textContent=laborRetRate+'%';
 
   // Display values
   $('salaryVal').textContent='$'+fmtFull(s);
@@ -325,8 +379,6 @@ function update(){
   $('phase1yVal').textContent=p1y+' 年';
   $('phase2Val').textContent='$'+fmtFull(p2);
   $('roiVal').textContent=roi+'%';
-  $('pensionVal').textContent='$'+fmtFull(pen);
-  $('laborRetVal').textContent='$'+fmtFull(lr);
 
   const res=simulate(s,ra,currentAge,d,r,sub,p1,p1y,p2,roi,bal,totalBonus,totalExp,pen,lr);
   const sn=res.snapshots;
@@ -386,15 +438,13 @@ function update(){
   dtHTML+='</table>';$('detailTable').innerHTML=dtHTML;
 
   // Retire summary
-  const laborRetAccum=g('laborRetAccum');
-  const pensionYears=g('pensionYears');
   const net=res.totalPassive-res.monthlyExp;
   $('retireSummary').innerHTML=`
     <h2>${ra} 歲退休收入摘要</h2>
     <div class="summary-row"><span>投資組合總值</span><span>$${fmtFull(res.finalPortfolio)}</span></div>
     <div class="summary-row"><span>4% 安全提領 (月)</span><span>$${fmtFull(res.swrMonthly)}</span></div>
-    <div class="summary-row"><span>勞保年金 (月) [年資${pensionYears}年]</span><span>$${fmtFull(res.pension)}</span></div>
-    <div class="summary-row"><span>勞退月領 [已累積$${fmtFull(laborRetAccum)}]</span><span>$${fmtFull(res.laborRet)}</span></div>
+    <div class="summary-row"><span>勞保年金 [年資${pensionYears}年，投保$${fmtFull(pensionSalary)}]</span><span>$${fmtFull(pen)}/月</span></div>
+    <div class="summary-row"><span>勞退月領 [累積$${fmt(lrResult.totalAccum)}÷${lrResult.lifeExpectMonths}月]</span><span>$${fmtFull(lr)}/月</span></div>
     <div class="summary-row"><span>每月被動收入合計</span><span>$${fmtFull(res.totalPassive)}</span></div>
     <div class="summary-row"><span>每月開銷 (${expenses.length}項)</span><span>$${fmtFull(res.monthlyExp)}</span></div>
     <div class="summary-row"><span>每月${net>=0?'盈餘':'缺口'}</span><span class="${net>=0?'pl-pos':'pl-neg'}">$${fmtFull(Math.abs(net))}</span></div>`;
