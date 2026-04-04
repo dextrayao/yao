@@ -149,8 +149,9 @@ function deleteNote(noteId) {
 
 function addTagToNote(noteId, tagName) {
   const db = getDb();
-  const tag = db.prepare('INSERT OR IGNORE INTO tags (name) VALUES (?)').run(tagName);
+  db.prepare('INSERT OR IGNORE INTO tags (name) VALUES (?)').run(tagName);
   const tagRow = db.prepare('SELECT id FROM tags WHERE name = ?').get(tagName);
+  if (!tagRow) return;
   db.prepare('INSERT OR IGNORE INTO note_tags (note_id, tag_id) VALUES (?, ?)')
     .run(noteId, tagRow.id);
 }
