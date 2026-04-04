@@ -177,7 +177,10 @@ tr:hover{background:#f8f9fb}
 <div class="tab-content" id="tabDetail"><div id="detailTable"></div></div>
 <div class="tab-content" id="tabRetire">
 <div class="summary-box" id="retireSummary"></div>
-<div class="chart-box" style="margin-top:16px"><canvas id="pieChart"></canvas></div>
+<div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-top:16px">
+<div class="chart-box" style="width:280px;flex-shrink:0"><canvas id="pieChart"></canvas></div>
+<div class="chart-box" style="flex:1;min-width:200px"><div id="pieDetail"></div></div>
+</div>
 </div>
 <div class="tab-content" id="tabStocks">
 <h2>我的股票持倉</h2>
@@ -455,7 +458,19 @@ function update(){
   const pieLabels=['所得稅','投資',...expenses.map(e=>e.name),'結餘'];
   const pColors=['#EF553B','#636EFA','#FFA15A','#00CC96','#AB63FA','#19D3F3','#FF6692','#B6E880','#FF97FF','#FECB52'];
   if(pieChart)pieChart.destroy();
-  pieChart=new Chart($('pieChart'),{type:'doughnut',data:{labels:pieLabels,datasets:[{data:pieData,backgroundColor:pColors.slice(0,pieLabels.length)}]},options:{responsive:true,plugins:{title:{display:true,text:'每月薪資分配'},legend:{position:'bottom'}}}});
+  pieChart=new Chart($('pieChart'),{type:'doughnut',data:{labels:pieLabels,datasets:[{data:pieData,backgroundColor:pColors.slice(0,pieLabels.length)}]},options:{responsive:true,plugins:{title:{display:true,text:'每月薪資分配',font:{size:13}},legend:{display:false}}}});
+
+  // Pie detail table
+  const pieTotal=pieData.reduce((a,b)=>a+b,0);
+  let pdHTML='<table><tr><th></th><th>項目</th><th>金額</th><th>比例</th></tr>';
+  pieLabels.forEach((l,i)=>{
+    const pct=pieTotal>0?(pieData[i]/pieTotal*100):0;
+    const c=pColors[i%pColors.length];
+    pdHTML+=`<tr><td style="text-align:center"><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:${c}"></span></td><td style="text-align:left">${l}</td><td>$${fmtFull(pieData[i])}</td><td>${pct.toFixed(1)}%</td></tr>`;
+  });
+  pdHTML+=`<tr style="font-weight:700;border-top:2px solid var(--border)"><td></td><td style="text-align:left">合計</td><td>$${fmtFull(pieTotal)}</td><td>100%</td></tr>`;
+  pdHTML+='</table>';
+  $('pieDetail').innerHTML=pdHTML;
 
   renderStocks();
 }
