@@ -7,7 +7,7 @@
           {
             "type": "command",
             "if": "Bash(git commit:*)",
-            "command": "cd /home/user/yao && npm run qc --silent 2>&1 | tail -20; exit ${PIPESTATUS[0]}",
+            "command": "cd /home/user/yao && npm run qc",
             "timeout": 120,
             "statusMessage": "Running QC checks before commit..."
           }
