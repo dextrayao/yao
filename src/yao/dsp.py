@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import numpy as np
 from scipy import signal as scisig
+from scipy.ndimage import uniform_filter1d
 
 
 def db_to_gain(db: float) -> float:
@@ -184,3 +185,202 @@ def noise_gate(
     smooth_gate = scisig.lfilter(b, a, raw_gate).astype(np.float32)
     smooth_gate = np.clip(smooth_gate, 0.0, 1.0)
     return (x * smooth_gate).astype(np.float32)
+
+
+def denoise(
+    x: np.ndarray,
+    sr: int,
+    strength: float = 0.8,
+    nfft: int = 2048,
+    noise_sample: np.ndarray | None = None,
+) -> np.ndarray:
+    """頻譜降噪 (spectral subtraction with temporal smoothing)。
+
+    從輸入訊號最安靜 10% 的段落估計噪音譜,然後在頻域扣除。
+    `strength` 控制扣除強度 (0~1),越大越激進但容易產生 "水底感"。
+
+    若提供 `noise_sample` (一段純噪音音訊),會用它作為噪音樣本,效果更精準。
+    """
+    if len(x) < nfft * 2:
+        return x
+    strength = float(np.clip(strength, 0.0, 1.0))
+    hop = nfft // 4
+    window = "hann"
+
+    _, _, Z = scisig.stft(
+        x, fs=sr, window=window, nperseg=nfft, noverlap=nfft - hop
+    )
+    mag = np.abs(Z)
+    phase = np.angle(Z)
+
+    if noise_sample is not None and len(noise_sample) >= nfft:
+        _, _, Zn = scisig.stft(
+            noise_sample, fs=sr, window=window, nperseg=nfft, noverlap=nfft - hop
+        )
+        noise_profile = np.mean(np.abs(Zn), axis=1, keepdims=True)
+    else:
+        frame_energy = mag.sum(axis=0)
+        if len(frame_energy) == 0:
+            return x
+        threshold = np.percentile(frame_energy, 10)
+        quiet_mask = frame_energy <= threshold
+        if quiet_mask.sum() < 3:
+            noise_profile = np.min(mag, axis=1, keepdims=True)
+        else:
+            noise_profile = np.mean(mag[:, quiet_mask], axis=1, keepdims=True)
+
+    # oversubtraction factor + spectral floor
+    alpha = 1.0 + 3.0 * strength           # 1.0 ~ 4.0
+    floor = 0.1 - 0.08 * strength          # 0.1 ~ 0.02
+
+    clean_mag = np.maximum(mag - alpha * noise_profile, floor * mag)
+
+    # 時域平滑 gain mask,降低 musical noise artifacts
+    gain = clean_mag / np.maximum(mag, 1e-10)
+    gain = uniform_filter1d(gain, size=3, axis=1)
+    clean_mag = mag * gain
+
+    Z_clean = clean_mag * np.exp(1j * phase)
+    _, x_clean = scisig.istft(
+        Z_clean, fs=sr, window=window, nperseg=nfft, noverlap=nfft - hop
+    )
+
+    out = np.zeros(len(x), dtype=np.float32)
+    n = min(len(out), len(x_clean))
+    out[:n] = x_clean[:n].astype(np.float32)
+    return out
+
+
+def trim_long_silences(
+    x: np.ndarray,
+    sr: int,
+    threshold_db: float = -40.0,
+    max_silence_ms: int = 800,
+    keep_silence_ms: int = 300,
+    window_ms: int = 20,
+) -> np.ndarray:
+    """將長於 `max_silence_ms` 的靜音段縮短至 `keep_silence_ms`。
+
+    注意: 會改變音訊長度,**不適合**用在需要與其他軌同步的場合。
+    適合單人 podcast 去除冗長停頓。
+    """
+    if len(x) == 0:
+        return x
+    window = max(1, int(sr * window_ms / 1000))
+    n_windows = len(x) // window
+    if n_windows == 0:
+        return x
+
+    frames = x[: n_windows * window].reshape(n_windows, window)
+    rms = np.sqrt(np.mean(frames ** 2, axis=1) + 1e-12)
+    threshold = db_to_gain(threshold_db)
+    silent = rms < threshold
+
+    max_silent_samples = int(sr * max_silence_ms / 1000)
+    keep_silent_samples = int(sr * keep_silence_ms / 1000)
+
+    keep_mask = np.ones(len(x), dtype=bool)
+    i = 0
+    while i < n_windows:
+        if silent[i]:
+            j = i
+            while j < n_windows and silent[j]:
+                j += 1
+            run_samples = (j - i) * window
+            if run_samples > max_silent_samples:
+                remove = run_samples - keep_silent_samples
+                mid_start = i * window + keep_silent_samples // 2
+                mid_end = min(mid_start + remove, len(x))
+                keep_mask[mid_start:mid_end] = False
+            i = j
+        else:
+            i += 1
+    return x[keep_mask].astype(np.float32)
+
+
+def apply_mutes(
+    x: np.ndarray,
+    sr: int,
+    mute_ranges: list[tuple[float, float]],
+    fade_ms: float = 20.0,
+) -> np.ndarray:
+    """在指定的 [(start_s, end_s), ...] 範圍套用靜音 (含淡入淡出避免 click)。"""
+    if not mute_ranges:
+        return x
+    y = x.copy()
+    fade_n = max(1, int(sr * fade_ms / 1000))
+    for start_s, end_s in mute_ranges:
+        start = max(0, min(int(start_s * sr), len(y)))
+        end = max(0, min(int(end_s * sr), len(y)))
+        if end <= start:
+            continue
+        fo_start = max(0, start - fade_n)
+        fi_end = min(len(y), end + fade_n)
+        if fo_start < start:
+            fade_out = np.linspace(1.0, 0.0, start - fo_start, dtype=np.float32)
+            y[fo_start:start] = (y[fo_start:start] * fade_out).astype(np.float32)
+        y[start:end] = 0
+        if end < fi_end:
+            fade_in = np.linspace(0.0, 1.0, fi_end - end, dtype=np.float32)
+            y[end:fi_end] = (y[end:fi_end] * fade_in).astype(np.float32)
+    return y.astype(np.float32)
+
+
+def detect_transients(
+    x: np.ndarray,
+    sr: int,
+    high_pass_hz: float = 1500.0,
+    min_duration_ms: float = 40.0,
+    max_duration_ms: float = 600.0,
+    ratio_threshold: float = 5.0,
+) -> list[tuple[float, float]]:
+    """偵測類似咳嗽 / 突發雜音的位置 (候選清單)。
+
+    做法:
+      1. 高通濾波 (砍掉基頻,突顯瞬態)
+      2. 短時 RMS (10 ms 視窗)
+      3. 用 5% 分位數作為廣域 baseline (避免被 burst 本身污染)
+      4. 當 rms > ratio_threshold × baseline 視為 burst
+      5. 篩選持續時間落在 [min, max] 範圍內的段落
+
+    **這是候選偵測,不是保證準確** — 會把激動的語氣、大笑、爆破音一併抓到。
+    使用者需要人工審過產出的時間戳清單,刪掉誤報,再用 `apply_mutes` 套用。
+    """
+    if len(x) < sr // 10:
+        return []
+
+    sos = scisig.butter(4, high_pass_hz, btype="highpass", fs=sr, output="sos")
+    y = scisig.sosfilt(sos, x).astype(np.float32)
+
+    window_ms = 10
+    window = max(1, int(sr * window_ms / 1000))
+    n_frames = len(y) // window
+    if n_frames < 10:
+        return []
+    frames = y[: n_frames * window].reshape(n_frames, window)
+    rms = np.sqrt(np.mean(frames ** 2, axis=1) + 1e-12)
+
+    # 用全段低分位數當 baseline,對 burst 有抗性
+    baseline = max(float(np.percentile(rms, 5)), 1e-5)
+    is_burst = rms > ratio_threshold * baseline
+
+    min_frames = max(1, int(min_duration_ms / window_ms))
+    max_frames = max(min_frames, int(max_duration_ms / window_ms))
+
+    bursts: list[tuple[float, float]] = []
+    i = 0
+    pad_s = 0.05  # 前後各多抓 50ms 作為 fade 緩衝
+    while i < n_frames:
+        if is_burst[i]:
+            j = i
+            while j < n_frames and is_burst[j]:
+                j += 1
+            run = j - i
+            if min_frames <= run <= max_frames:
+                start_s = max(0.0, i * window / sr - pad_s)
+                end_s = min(len(x) / sr, j * window / sr + pad_s)
+                bursts.append((start_s, end_s))
+            i = j
+        else:
+            i += 1
+    return bursts
