@@ -1,0 +1,61 @@
+# Yao podcast 混音設定範例
+#
+# 執行: yao examples/config.example.yaml
+#
+# 所有路徑相對於 yao 執行時的工作目錄 (cwd)。
+
+output:
+  path: output/episode.mp3
+  bitrate: 192k
+
+tracks:
+  # 一或多個人聲音軌 (主持人、來賓)
+  voice:
+    - path: recordings/host.wav
+      gain_db: 0
+    # - path: recordings/guest.wav
+    #   gain_db: -2
+
+  # 背景音樂 (會自動 loop 到人聲長度)
+  music:
+    path: recordings/bgm.mp3
+    gain_db: -18   # 背景襯樂建議 -18 ~ -22 dB
+
+  # 片頭 / 片尾 (直接拼接在主體前後)
+  intro:
+    path: recordings/intro.wav
+    gain_db: 0
+  outro:
+    path: recordings/outro.wav
+    gain_db: 0
+
+processing:
+  voice:
+    high_pass_hz: 80          # 濾除空調、噴麥低頻雜訊
+    noise_gate:
+      threshold_db: -50       # 低於 -50 dB 的段落靜音
+    compressor:
+      threshold_db: -20
+      ratio: 3.0
+      time_ms: 20
+    presence_boost_db: 2.5    # 3~5 kHz 人聲清晰度加強
+    normalize_peak_db: -1.0
+
+  ducking:
+    enabled: true
+    attenuation_db: -12       # 人聲出現時背景音樂降低 12 dB
+    threshold_db: -40
+    smooth_hz: 3.0            # 越小越平滑
+
+  output:
+    target_lufs: -16.0        # podcast 常用目標 (Apple/Spotify 建議 -16 ~ -14)
+    limiter_ceiling_db: -1.0
+
+# 產生標題 / 說明 / hashtag 用的逐字稿檔案 (純文字)
+transcript: recordings/transcript.txt
+
+metadata:
+  language: zh-TW
+  topic_hints: "AI 與新創科技討論節目,聽眾為軟體工程師"
+  model: claude-opus-4-6
+  output_path: output/metadata.json

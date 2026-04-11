@@ -1,0 +1,22 @@
+[project]
+name = "yao"
+version = "0.1.0"
+description = "Podcast 混音與中繼資料產生工具"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "pydub>=0.25",
+    "pyyaml>=6.0",
+    "anthropic>=0.39",
+]
+
+[project.scripts]
+yao = "yao.cli:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
