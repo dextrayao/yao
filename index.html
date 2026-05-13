@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>自拍機 Selfie Booth</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <h1>自拍機 <span class="subtitle">Selfie Booth</span></h1>
+      <div class="camera-picker">
+        <label for="cameraSelect">鏡頭</label>
+        <select id="cameraSelect" aria-label="選擇鏡頭"></select>
+      </div>
+    </header>
+
+    <section class="stage">
+      <div id="viewport" class="viewport">
+        <video id="video" autoplay playsinline muted></video>
+        <div id="frameOverlay" class="frame-overlay" aria-hidden="true"></div>
+        <div id="stickerLayer" class="sticker-layer" aria-label="貼圖層"></div>
+        <div id="countdown" class="countdown" aria-hidden="true"></div>
+        <div id="flash" class="flash" aria-hidden="true"></div>
+        <div id="cameraError" class="camera-error" hidden>
+          <p>無法開啟鏡頭。請確認瀏覽器權限，或重新整理頁面。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="controls">
+      <div class="control-row">
+        <span class="control-label">模式</span>
+        <div class="segmented" role="radiogroup" aria-label="拍照模式">
+          <button class="seg active" data-mode="single" role="radio" aria-checked="true">單張</button>
+          <button class="seg" data-mode="strip" role="radio" aria-checked="false">四連拍</button>
+        </div>
+      </div>
+
+      <div class="control-row">
+        <span class="control-label">濾鏡</span>
+        <div id="filterList" class="chip-row" role="radiogroup" aria-label="濾鏡"></div>
+      </div>
+
+      <div class="control-row">
+        <span class="control-label">貼圖</span>
+        <div id="stickerList" class="chip-row" aria-label="貼圖"></div>
+        <button id="clearStickers" class="ghost-btn">清除</button>
+      </div>
+
+      <div class="control-row">
+        <span class="control-label">邊框</span>
+        <div id="frameList" class="chip-row" role="radiogroup" aria-label="邊框"></div>
+      </div>
+
+      <div class="shoot-row">
+        <button id="shootBtn" class="shoot-btn" type="button">
+          <span class="shoot-inner"></span>
+        </button>
+        <p class="hint">按下中央按鈕開始拍照</p>
+      </div>
+    </section>
+
+    <div id="previewModal" class="modal" hidden>
+      <div class="modal-inner">
+        <img id="previewImage" alt="預覽" />
+        <div class="modal-actions">
+          <button id="retakeBtn" class="btn secondary">重拍</button>
+          <button id="downloadBtn" class="btn primary">下載</button>
+          <button id="printBtn" class="btn">列印</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "stickers": [
+    { "id": "heart",       "name": "愛心",   "file": "assets/stickers/heart.svg" },
+    { "id": "star",        "name": "星星",   "file": "assets/stickers/star.svg" },
+    { "id": "sunglasses",  "name": "墨鏡",   "file": "assets/stickers/sunglasses.svg" },
+    { "id": "crown",       "name": "皇冠",   "file": "assets/stickers/crown.svg" },
+    { "id": "sparkle",     "name": "閃光",   "file": "assets/stickers/sparkle.svg" }
+  ],
+  "frames": [
+    { "id": "none",   "name": "無邊框", "file": null },
+    { "id": "dots",   "name": "點點",   "file": "assets/frames/dots.svg" },
+    { "id": "hearts", "name": "愛心邊", "file": "assets/frames/hearts.svg" }
+  ]
+}

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" preserveAspectRatio="none">
+  <defs>
+    <symbol id="h" viewBox="0 0 100 100">
+      <path d="M50 85 C20 65 10 40 25 25 C40 10 50 25 50 35 C50 25 60 10 75 25 C90 40 80 65 50 85 Z"
+            fill="#ff4d6d"/>
+    </symbol>
+    <pattern id="hp" x="0" y="0" width="80" height="80" patternUnits="userSpaceOnUse">
+      <use href="#h" x="20" y="20" width="40" height="40"/>
+    </pattern>
+  </defs>
+  <rect x="0" y="0" width="1920" height="80" fill="url(#hp)"/>
+  <rect x="0" y="1000" width="1920" height="80" fill="url(#hp)"/>
+  <rect x="0" y="0" width="80" height="1080" fill="url(#hp)"/>
+  <rect x="1840" y="0" width="80" height="1080" fill="url(#hp)"/>
+</svg>
