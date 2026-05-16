@@ -1,0 +1,71 @@
+name: weekly-labor-cost
+
+on:
+  schedule:
+    # Every Monday 05:00 Asia/Taipei = 21:00 UTC the previous Sunday.
+    - cron: '0 21 * * 0'
+  workflow_dispatch:
+    inputs:
+      week_iso:
+        description: 'ISO week to generate (e.g. 2026-W20). Leave blank for last completed week.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: weekly-labor-cost
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TZ: Asia/Taipei
+      SHEET_ID: 1cvHG-2urNIZVmNDOBXC88ioWZDN_Q1RkWJO0qNd1_-8
+      SALARY_PAGE_ID: 35898c04-2567-8197-9640-e78aab24874f
+      NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+      GOOGLE_SA_JSON: ${{ secrets.GOOGLE_SA_JSON }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: claude/weekly-labor-cost-tracking-bx5YU
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run unit tests
+        run: python -m pytest tests/ -q
+        env:
+          GOOGLE_SA_JSON: ''  # tests don't need real credentials
+
+      - name: Generate weekly report
+        run: |
+          if [ -n "${{ github.event.inputs.week_iso }}" ]; then
+            python -m scripts.weekly_report "${{ github.event.inputs.week_iso }}"
+          else
+            python -m scripts.weekly_report
+          fi
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "chore(report): weekly labor cost $(date -u +%Y-%m-%d)"
+          git push origin HEAD:claude/weekly-labor-cost-tracking-bx5YU

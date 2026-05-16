@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>酷客創藝 ・ 專案人力成本週報</title>
+<style>{{ css }}</style>
+</head>
+<body>
+<div class="container">
+  <header class="hero">
+    <p class="eyebrow">酷客創藝 ・ Weekly Labor Cost Reports</p>
+    <h1>專案人力成本週報</h1>
+    <p class="meta">
+      <span>每週一早上 05:00 (Asia/Taipei) 由 GitHub Actions 自動生成</span>
+    </p>
+  </header>
+
+  <section>
+    <h2 class="section-title">所有週報</h2>
+    {% if entries %}
+    <ul class="index-list">
+      {% for e in entries %}
+      <li>
+        <a href="weeks/{{ e.filename }}">
+          <div class="week-id">{{ e.iso_week }}</div>
+          <div class="week-range">{{ e.range }}</div>
+          <div class="week-total">NT$ {{ '{:,.0f}'.format(e.total_cost) }} ・ {{ '{:,.1f}'.format(e.total_hours) }} 小時</div>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="card">
+      <p style="color: var(--ink-soft); margin: 0;">尚未有任何週報。下一次 GitHub Actions 觸發後將自動填入。</p>
+    </div>
+    {% endif %}
+  </section>
+
+  <footer>
+    <p>
+      成本基準：完整勞動成本 (本俸 × 1.2551)。資料來源：Notion + Google Sheet。
+    </p>
+  </footer>
+</div>
+</body>
+</html>
