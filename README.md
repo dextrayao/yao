@@ -32,7 +32,7 @@ cp .env.example .env   # 然後填入你的設定
 | --- | --- |
 | `THREADS_USER_ID` | 你的 Threads 使用者 ID（數字） |
 | `THREADS_ACCESS_TOKEN` | Threads API 的長期存取權杖 |
-| `SCHEDULE_TIMES` | 每天發文時間，逗號分隔。預設 `09:00,21:00`（= 每天兩篇） |
+| `SCHEDULE_TIMES` | 每天發文時間，逗號分隔。預設 `08:00,22:00`（= 每天兩篇） |
 | `TIMEZONE` | 時區，台灣用 `Asia/Taipei` |
 | `ANTHROPIC_API_KEY` | 用 `yao generate` 自動生成貼文時才需要 |
 

@@ -31,7 +31,7 @@ function load(env = process.env) {
     userId: env.THREADS_USER_ID,
     accessToken: env.THREADS_ACCESS_TOKEN,
     timezone: env.TIMEZONE || 'Asia/Taipei',
-    times: parseTimes(env.SCHEDULE_TIMES || '09:00,21:00'),
+    times: parseTimes(env.SCHEDULE_TIMES || '08:00,22:00'),
   };
 
   const missing = [];
