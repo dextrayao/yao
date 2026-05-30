@@ -4,6 +4,7 @@
 // 命令列工具：
 //   yao add "要發的內容"        把一篇貼文加進佇列
 //   yao generate <檔案> [篇數]  用 AI 把素材檔自動改寫成多篇貼文並加進佇列
+//   yao import <檔案.json>      把一個 JSON 字串陣列（現成貼文）整批加進佇列
 //   yao list                    列出佇列狀態
 //   yao publish-now             立刻發出下一篇（給測試，或用系統 cron / GitHub Actions 呼叫）
 
@@ -35,6 +36,43 @@ function cmdList() {
   }
   const pending = posts.filter((p) => p.status === 'pending').length;
   console.log(`\n共 ${posts.length} 篇，待發 ${pending} 篇。`);
+}
+
+function cmdImport(args) {
+  const [file] = args;
+  if (!file) {
+    console.error('用法：yao import <檔案.json>（內容須為字串陣列）');
+    process.exit(1);
+  }
+  if (!fs.existsSync(file)) {
+    console.error(`找不到檔案：${file}`);
+    process.exit(1);
+  }
+
+  let items;
+  try {
+    items = JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    console.error('檔案不是有效的 JSON');
+    process.exit(1);
+  }
+  if (!Array.isArray(items)) {
+    console.error('JSON 內容必須是一個字串陣列');
+    process.exit(1);
+  }
+
+  let added = 0;
+  for (const text of items) {
+    try {
+      queue.add(text);
+      added += 1;
+      const preview = String(text).replace(/\n/g, ' ').slice(0, 30);
+      console.log(`  ✅ ${preview}…`);
+    } catch (err) {
+      console.error(`  ⚠️ 跳過一篇：${err.message}`);
+    }
+  }
+  console.log(`\n完成，已加入 ${added} 篇到佇列。用 \`yao list\` 檢視。`);
 }
 
 async function cmdGenerate(args) {
@@ -83,6 +121,8 @@ async function main() {
       return cmdAdd(args);
     case 'generate':
       return cmdGenerate(args);
+    case 'import':
+      return cmdImport(args);
     case 'list':
       return cmdList();
     case 'publish-now':
@@ -91,6 +131,7 @@ async function main() {
       console.log('用法：');
       console.log('  yao add "內容"             把一篇貼文加進佇列');
       console.log('  yao generate <檔案> [篇數]  用 AI 把素材自動改寫成多篇貼文');
+      console.log('  yao import <檔案.json>      把現成貼文（JSON 陣列）整批加進佇列');
       console.log('  yao list                   列出佇列狀態');
       console.log('  yao publish-now            立刻發出下一篇');
       process.exit(command ? 1 : 0);

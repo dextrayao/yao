@@ -62,6 +62,14 @@ node bin/yao.js generate material.txt 10
 
 會依素材產生 10 篇符合 Threads 字數上限的貼文，自動加進佇列。
 
+**或整批匯入現成貼文**（JSON 字串陣列，例如從 Notion 整理出來的成品）：
+
+```bash
+node bin/yao.js import material/ethereal-dimension-threads.json
+```
+
+> `material/ethereal-dimension-threads.json` 是從 Notion「姚的空靈次元」7 天備稿整理出的 Threads 純文字貼文，已排除先前發過的篇數。
+
 **檢視佇列：**
 
 ```bash
