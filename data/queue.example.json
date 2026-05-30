@@ -1,0 +1,16 @@
+[
+  {
+    "id": "example-1",
+    "text": "這是第一篇範例貼文。把 data/queue.example.json 複製成 data/queue.json，或用 `yao add \"內容\"` 新增你自己的貼文。",
+    "status": "pending",
+    "attempts": 0,
+    "createdAt": "2026-05-30T00:00:00.000Z"
+  },
+  {
+    "id": "example-2",
+    "text": "這是第二篇範例貼文。排程器每天會在 SCHEDULE_TIMES 設定的兩個時間，各取出一篇 pending 的貼文發佈。",
+    "status": "pending",
+    "attempts": 0,
+    "createdAt": "2026-05-30T00:00:00.000Z"
+  }
+]

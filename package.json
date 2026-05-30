@@ -1,0 +1,25 @@
+{
+  "name": "yao",
+  "version": "1.0.0",
+  "description": "依照預先寫好的內容，每天定時自動發兩篇貼文到 Threads",
+  "type": "commonjs",
+  "bin": {
+    "yao": "bin/yao.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "publish-now": "node bin/yao.js publish-now",
+    "add": "node bin/yao.js add",
+    "list": "node bin/yao.js list",
+    "generate": "node bin/yao.js generate",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.100.0",
+    "dotenv": "^16.4.5",
+    "node-cron": "^3.0.3"
+  }
+}

@@ -1,0 +1,7 @@
+node_modules/
+.env
+*.log
+
+# 執行時產生的貼文狀態（保留範例 queue.example.json）
+data/queue.json
+data/published.json
