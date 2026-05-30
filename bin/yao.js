@@ -2,6 +2,8 @@
 'use strict';
 
 // 命令列工具：
+//   yao auth url    --app-id … --redirect-uri …                       產生 Threads 授權連結
+//   yao auth token  --app-id … --app-secret … --redirect-uri … --code …  用授權碼換出長期 token
 //   yao add "要發的內容"        把一篇貼文加進佇列
 //   yao generate <檔案> [篇數]  用 AI 把素材檔自動改寫成多篇貼文並加進佇列
 //   yao import <檔案.json>      把一個 JSON 字串陣列（現成貼文）整批加進佇列
@@ -36,6 +38,69 @@ function cmdList() {
   }
   const pending = posts.filter((p) => p.status === 'pending').length;
   console.log(`\n共 ${posts.length} 篇，待發 ${pending} 篇。`);
+}
+
+// 把 --key value 解析成物件。
+function parseFlags(args) {
+  const flags = {};
+  for (let i = 0; i < args.length; i += 1) {
+    if (args[i].startsWith('--')) {
+      const key = args[i].slice(2);
+      flags[key] = args[i + 1];
+      i += 1;
+    }
+  }
+  return flags;
+}
+
+async function cmdAuth(args) {
+  const [sub, ...rest] = args;
+  const flags = parseFlags(rest);
+  const auth = require('../src/auth');
+
+  if (sub === 'url') {
+    if (!flags['app-id'] || !flags['redirect-uri']) {
+      console.error('用法：yao auth url --app-id <APP_ID> --redirect-uri <REDIRECT_URI>');
+      process.exit(1);
+    }
+    const url = auth.buildAuthorizeUrl({
+      appId: flags['app-id'],
+      redirectUri: flags['redirect-uri'],
+    });
+    console.log('在瀏覽器打開這個連結並同意授權：\n');
+    console.log(url);
+    console.log('\n授權後會跳轉到你的 redirect URI，網址會帶 ?code=...，把那個 code 複製下來。');
+    console.log('接著執行：yao auth token --app-id … --app-secret … --redirect-uri … --code <剛剛的code>');
+    return;
+  }
+
+  if (sub === 'token') {
+    const required = ['app-id', 'app-secret', 'redirect-uri', 'code'];
+    const missing = required.filter((k) => !flags[k]);
+    if (missing.length) {
+      console.error(`缺少參數：${missing.map((k) => '--' + k).join(', ')}`);
+      console.error('用法：yao auth token --app-id … --app-secret … --redirect-uri … --code …');
+      process.exit(1);
+    }
+    console.log('正在換取長期 token…');
+    const { userId, longToken, expiresIn } = await auth.getLongLivedCredentials({
+      appId: flags['app-id'],
+      appSecret: flags['app-secret'],
+      redirectUri: flags['redirect-uri'],
+      code: flags['code'],
+    });
+    const days = expiresIn ? Math.round(expiresIn / 86400) : 60;
+    console.log('\n✅ 成功！把以下兩行填進你的 .env：\n');
+    console.log(`THREADS_USER_ID=${userId}`);
+    console.log(`THREADS_ACCESS_TOKEN=${longToken}`);
+    console.log(`\n（此 token 約 ${days} 天後過期，快過期時再重新授權即可。）`);
+    return;
+  }
+
+  console.log('用法：');
+  console.log('  yao auth url   --app-id … --redirect-uri …');
+  console.log('  yao auth token --app-id … --app-secret … --redirect-uri … --code …');
+  process.exit(sub ? 1 : 0);
 }
 
 function cmdImport(args) {
@@ -117,6 +182,8 @@ async function cmdPublishNow() {
 async function main() {
   const [command, ...args] = process.argv.slice(2);
   switch (command) {
+    case 'auth':
+      return cmdAuth(args);
     case 'add':
       return cmdAdd(args);
     case 'generate':
@@ -129,6 +196,7 @@ async function main() {
       return cmdPublishNow();
     default:
       console.log('用法：');
+      console.log('  yao auth url|token …        取得 Threads 授權與長期 token');
       console.log('  yao add "內容"             把一篇貼文加進佇列');
       console.log('  yao generate <檔案> [篇數]  用 AI 把素材自動改寫成多篇貼文');
       console.log('  yao import <檔案.json>      把現成貼文（JSON 陣列）整批加進佇列');

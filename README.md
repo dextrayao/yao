@@ -36,11 +36,20 @@ cp .env.example .env   # 然後填入你的設定
 | `TIMEZONE` | 時區，台灣用 `Asia/Taipei` |
 | `ANTHROPIC_API_KEY` | 用 `yao generate` 自動生成貼文時才需要 |
 
-### 怎麼拿到 Threads 的 ID 與權杖
+### 怎麼拿到 Threads 的 ID 與權杖（用內建的 `yao auth`）
 
-1. 到 [developers.facebook.com](https://developers.facebook.com) 建一個 App，加入「Threads API」use case。
-2. 完成 OAuth 授權，取得 access token（建議換成 60 天的 long-lived token，並定期 refresh）。
-3. 用 `GET https://graph.threads.net/v1.0/me?fields=id` 取得你的 `THREADS_USER_ID`。
+1. 到 [developers.facebook.com](https://developers.facebook.com) 建一個 App，加入「Threads API」use case，把你的 Threads 帳號設成 Tester，記下 **App ID / App Secret** 與一個 **Redirect URI**。
+2. 產生授權連結並在瀏覽器同意：
+   ```bash
+   node bin/yao.js auth url --app-id <APP_ID> --redirect-uri <REDIRECT_URI>
+   ```
+   授權後網址會帶 `?code=...`，複製那個 `code`。
+3. 用 `code` 換出長期 token：
+   ```bash
+   node bin/yao.js auth token --app-id <APP_ID> --app-secret <APP_SECRET> \
+     --redirect-uri <REDIRECT_URI> --code <CODE>
+   ```
+   它會印出 `THREADS_USER_ID` 和 `THREADS_ACCESS_TOKEN`，貼進 `.env` 即可。
 
 ## 使用
 
