@@ -12,7 +12,7 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc -b",
+    "typecheck": "tsc --noEmit -p packages/core/tsconfig.json && tsc --noEmit -p packages/server/tsconfig.json",
     "dev:server": "npm -w @yao/server run dev",
     "dev:web": "npm -w @yao/web run dev",
     "build": "npm -w @yao/web run build"

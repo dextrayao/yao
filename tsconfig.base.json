@@ -11,8 +11,6 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "verbatimModuleSyntax": true,
-    "declaration": true,
-    "sourceMap": true,
     "paths": {
       "@yao/core": ["./packages/core/src/index.ts"]
     }

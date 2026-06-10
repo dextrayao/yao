@@ -1,0 +1,1 @@
+{"root":["./src/auth.ts","./src/config.ts","./src/db.ts","./src/events.ts","./src/index.ts","./src/service.ts","./src/ticker.ts","./src/llm/client.ts","./src/llm/ollama.ts","./src/llm/whisper.ts","./src/repo/pets.ts","./src/routes/dimension.ts","./src/routes/pets.ts","./src/routes/stream.ts"],"errors":true,"version":"5.9.3"}
