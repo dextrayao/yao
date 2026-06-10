@@ -2,6 +2,9 @@ node_modules/
 dist/
 *.log
 
+# Generated previews (run scripts/gen-preview.ts to regenerate)
+previews/
+
 # Local environment & secrets
 .env
 .env.local

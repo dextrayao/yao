@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  launchd agent for the 空靈次元 backend (24/7 on the Mac Studio).
+  Edit the paths marked TODO, then:
+    cp deploy/com.yao.pet.plist ~/Library/LaunchAgents/com.yao.pet.plist
+    launchctl load ~/Library/LaunchAgents/com.yao.pet.plist
+-->
+<plist version="1.0">
+  <dict>
+    <key>Label</key>
+    <string>com.yao.pet</string>
+
+    <key>ProgramArguments</key>
+    <array>
+      <!-- TODO: `which npm` on your Mac (Homebrew: /opt/homebrew/bin/npm) -->
+      <string>/opt/homebrew/bin/npm</string>
+      <string>-w</string>
+      <string>@yao/server</string>
+      <string>run</string>
+      <string>start</string>
+    </array>
+
+    <!-- TODO: absolute path to this repo -->
+    <key>WorkingDirectory</key>
+    <string>/Users/CHANGE_ME/yao</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+      <key>PATH</key>
+      <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/yao.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/yao.err.log</string>
+  </dict>
+</plist>
