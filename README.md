@@ -45,9 +45,8 @@ cp .env.example .env
 ollama pull qwen2.5
 ollama serve            # usually already running on macOS
 
-# 4. build the web app, then start the 24/7 server (it serves the PWA too)
-npm run build
-npm -w @yao/server run start
+# 4. build + start the 24/7 server (it serves the PWA too) — one command
+npm start
 ```
 
 Open `http://localhost:4711` on the Mac. **Summon** a pet and it begins to live.
