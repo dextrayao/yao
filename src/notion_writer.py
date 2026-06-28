@@ -16,7 +16,7 @@ def build_properties(record: Record) -> dict:
 
     note = (
         f"信心分數 {v.final_confidence}（一致性 {v.agreement}）｜"
-        f"Claude conf {record.claude.confidence}, Gemini conf {record.gemini.confidence}"
+        f"Claude conf {record.claude.confidence}, 工房 conf {record.workshop.confidence}"
     )
     if v.notes:
         note += f"｜{v.notes}"

@@ -1,6 +1,6 @@
 # Pinterest 圖像逆向 Prompt 分析器
 
-自動抓取 Pinterest 看板／使用者頁面的圖片，用 **Claude + Gemini 雙模型**逆向推回生成 prompt，經**交叉驗證信心分數**篩選後，把高正確性的結果寫入既有的 Notion「圖像分析資料庫」。
+自動抓取 Pinterest 看板／使用者頁面的圖片，用 **Claude + AI 工房雙模型**逆向推回生成 prompt，經**交叉驗證信心分數**篩選後，把高正確性的結果寫入既有的 Notion「圖像分析資料庫」。
 
 ## 流程
 
@@ -11,7 +11,7 @@ Pinterest 看板/使用者 URL
    每張圖下載
         │  analyzer.py
         ├── Claude (Opus 4.8) 逆向 → prompt / 風格標籤 / 自評信心
-        ├── Gemini 逆向          → prompt / 風格標籤 / 自評信心
+        ├── AI 工房逆向          → prompt / 風格標籤 / 自評信心（OpenAI 相容看圖）
         └── Claude 裁判交叉比對  → 一致性 agreement + 合成 prompt
         ▼
    verifier.py：最終信心 = 一致性 × 兩模型平均自評信心
@@ -28,7 +28,7 @@ playwright install chromium      # 安裝瀏覽器（首次）
 cp .env.example .env             # 填入金鑰
 ```
 
-需要的金鑰見 `.env.example`：`ANTHROPIC_API_KEY`、`GEMINI_API_KEY`、`NOTION_API_KEY`、`NOTION_DATABASE_ID`。
+需要的金鑰見 `.env.example`：`ANTHROPIC_API_KEY`、`AI_WORKSHOP_API_KEY`/`AI_WORKSHOP_BASE_URL`/`AI_WORKSHOP_MODEL`、`NOTION_API_KEY`、`NOTION_DATABASE_ID`。
 
 > Notion 整合：到 <https://www.notion.so/my-integrations> 建立 internal integration，
 > 並在「圖像分析資料庫」頁面右上 `···` → 連線 → 加入該整合。
@@ -56,7 +56,7 @@ python -m src.main dextrayao/board-a dextrayao/board-b --threshold 0.8
 | 原圖 | Pinterest 原圖外連 |
 | 來源出處 | pin 頁面網址（去重鍵）|
 | 逆向 Prompt | 合成後的英文 prompt |
-| 產業用途 / 類別 | 模型分類（限既有選項）|
+| 產業用途／類別 | 模型分類（限既有選項）|
 | 風格標籤 | 模型挑選（限既有選項）|
 | 備註 | 信心分數、一致性、模型分歧說明 |
 

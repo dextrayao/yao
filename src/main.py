@@ -19,13 +19,13 @@ def process_pin(pin) -> Record:
     """對單一 pin 跑完整分析與驗證。"""
     image, mime = analyzer.download_image(pin.image_url)
     claude = analyzer.analyze_with_claude(image, mime)
-    gemini = analyzer.analyze_with_gemini(image, mime)
-    validation = analyzer.cross_validate(image, mime, claude, gemini)
-    return Record(pin=pin, claude=claude, gemini=gemini, validation=validation)
+    workshop = analyzer.analyze_with_workshop(image, mime)
+    validation = analyzer.cross_validate(image, mime, claude, workshop)
+    return Record(pin=pin, claude=claude, workshop=workshop, validation=validation)
 
 
 def run(urls: list[str], dry_run: bool, threshold: float, max_pins: int | None) -> int:
-    config.require("anthropic_api_key", "gemini_api_key")
+    config.require("anthropic_api_key", "workshop_api_key", "workshop_base_url", "workshop_model")
     if not dry_run:
         config.require("notion_api_key", "notion_database_id")
         writer = NotionWriter()

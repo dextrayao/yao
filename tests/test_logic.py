@@ -43,7 +43,7 @@ def test_clamp():
 
 def test_mean_conf_ignores_errored_model():
     a = Analysis(model="claude", confidence=0.8)
-    b = Analysis(model="gemini", error="boom")
+    b = Analysis(model="workshop", error="boom")
     assert analyzer._mean_conf(a, b) == 0.8
 
 
@@ -71,7 +71,7 @@ def _record():
                    style_tags=["莫蘭迪綠", "大留白"], agreement=0.9, final_confidence=0.82)
     return Record(pin=pin,
                   claude=Analysis(model="claude", confidence=0.9),
-                  gemini=Analysis(model="gemini", confidence=0.85),
+                  workshop=Analysis(model="workshop", confidence=0.85),
                   validation=v)
 
 

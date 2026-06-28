@@ -33,8 +33,10 @@ class Config:
     anthropic_api_key: str = field(default_factory=lambda: _get("ANTHROPIC_API_KEY"))
     claude_model: str = field(default_factory=lambda: _get("CLAUDE_MODEL", "claude-opus-4-8"))
 
-    gemini_api_key: str = field(default_factory=lambda: _get("GEMINI_API_KEY"))
-    gemini_model: str = field(default_factory=lambda: _get("GEMINI_MODEL", "gemini-2.5-flash"))
+    # AI 工房：第二個逆向模型（OpenAI 相容、支援看圖）
+    workshop_api_key: str = field(default_factory=lambda: _get("AI_WORKSHOP_API_KEY"))
+    workshop_base_url: str = field(default_factory=lambda: _get("AI_WORKSHOP_BASE_URL"))
+    workshop_model: str = field(default_factory=lambda: _get("AI_WORKSHOP_MODEL"))
 
     notion_api_key: str = field(default_factory=lambda: _get("NOTION_API_KEY"))
     notion_database_id: str = field(default_factory=lambda: _get("NOTION_DATABASE_ID"))

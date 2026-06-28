@@ -49,5 +49,5 @@ class Record:
 
     pin: Pin
     claude: Analysis
-    gemini: Analysis
+    workshop: Analysis     # AI 工房（第二個逆向模型）的結果
     validation: Validation

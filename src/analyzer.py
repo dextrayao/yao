@@ -1,4 +1,4 @@
-"""逆向 Prompt 分析：Claude 與 Gemini 各跑一次，再用 Claude 當裁判交叉比對。"""
+"""逆向 Prompt 分析：Claude 與 AI 工房各跑一次，再用 Claude 當裁判交叉比對。"""
 from __future__ import annotations
 
 import base64
@@ -16,6 +16,7 @@ from config import (
 from src.models import Analysis, Validation
 
 _TIMEOUT = 30
+_ANALYZE_TIMEOUT = 60
 
 # 兩個分析模型共用的指令：要求輸出嚴格 JSON，select/tag 只能從允許清單挑。
 _ANALYZE_INSTRUCTION = f"""你是 AI 影像逆向工程專家。觀察這張圖，推回最可能生成它的文字 prompt。
@@ -100,23 +101,39 @@ def analyze_with_claude(image: bytes, mime: str) -> Analysis:
         return Analysis(model="claude", error=str(exc))
 
 
-def analyze_with_gemini(image: bytes, mime: str) -> Analysis:
-    from google import genai
-    from google.genai import types
+def analyze_with_workshop(image: bytes, mime: str) -> Analysis:
+    """AI 工房：OpenAI 相容 chat/completions（看圖）。
 
-    client = genai.Client(api_key=config.gemini_api_key)
+    若你的工房是私有格式，只要改這個函式的請求/回應解析即可，
+    其餘流程（交叉比對、驗證、寫入）完全不用動。
+    """
+    data_uri = f"data:{mime};base64,{base64.b64encode(image).decode()}"
+    body = {
+        "model": config.workshop_model,
+        "max_tokens": 1024,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": _ANALYZE_INSTRUCTION},
+                    {"type": "image_url", "image_url": {"url": data_uri}},
+                ],
+            }
+        ],
+    }
     try:
-        resp = client.models.generate_content(
-            model=config.gemini_model,
-            contents=[
-                types.Part.from_bytes(data=image, mime_type=mime),
-                _ANALYZE_INSTRUCTION,
-            ],
+        resp = requests.post(
+            config.workshop_base_url.rstrip("/") + "/chat/completions",
+            json=body,
+            headers={"Authorization": f"Bearer {config.workshop_api_key}"},
+            timeout=_ANALYZE_TIMEOUT,
         )
-        data = _parse_json(resp.text)
-        return _to_analysis("gemini", data)
+        resp.raise_for_status()
+        text = resp.json()["choices"][0]["message"]["content"]
+        data = _parse_json(text)
+        return _to_analysis("workshop", data)
     except Exception as exc:  # noqa: BLE001
-        return Analysis(model="gemini", error=str(exc))
+        return Analysis(model="workshop", error=str(exc))
 
 
 def cross_validate(image: bytes, mime: str, a: Analysis, b: Analysis) -> Validation:
