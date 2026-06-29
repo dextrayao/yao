@@ -35,6 +35,16 @@ cp .env.example .env             # 填入金鑰
 
 ## 使用
 
+### 網頁介面（推薦）
+
+```bash
+streamlit run app.py
+```
+
+瀏覽器開啟後貼上 Pinterest 網址、調門檻、可勾「試跑」，按「開始分析」即可；過門檻者自動寫入 Notion。
+
+### 命令列
+
 ```bash
 # 抓某使用者近期 pin，先試跑不寫入
 python -m src.main https://www.pinterest.com/dextrayao/ --dry-run
