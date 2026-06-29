@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  讓網頁介面在 Mac Studio 開機後自動常駐。
+  安裝：
+    1) 把下面的 __PROJECT_DIR__ 改成專案絕對路徑（例如 /Users/你/yao）
+    2) cp deploy/com.kuke.pinterest-analyzer.plist ~/Library/LaunchAgents/
+    3) launchctl load ~/Library/LaunchAgents/com.kuke.pinterest-analyzer.plist
+  之後瀏覽器開 http://localhost:8501（或 Tailscale 內 http://macmac-studio:8501）
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.kuke.pinterest-analyzer</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>__PROJECT_DIR__/deploy/run.sh</string>
+        <string>--lan</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>__PROJECT_DIR__</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>__PROJECT_DIR__/deploy/streamlit.log</string>
+    <key>StandardErrorPath</key>
+    <string>__PROJECT_DIR__/deploy/streamlit.err.log</string>
+</dict>
+</plist>
