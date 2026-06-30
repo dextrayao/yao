@@ -24,7 +24,7 @@ def build_properties(record: Record) -> dict:
     props: dict = {
         "名稱": {"title": [{"text": {"content": name[:200]}}]},
         "逆向 Prompt": {"rich_text": [{"text": {"content": v.prompt[:2000]}}]},
-        "來源出處": {"rich_text": [{"text": {"content": record.pin.source_url}}]},
+        "來源出處": {"rich_text": [{"text": {"content": record.pin.source_url[:2000]}}]},
         "備註": {"rich_text": [{"text": {"content": note[:2000]}}]},
         "風格標籤": {"multi_select": [{"name": t} for t in v.style_tags]},
     }
@@ -48,7 +48,12 @@ class NotionWriter:
         self.database_id = database_id or config.notion_database_id
 
     def exists(self, source_url: str) -> bool:
-        """檢查「來源出處」是否已存在，避免重複寫入。"""
+        """檢查「來源出處」是否已存在，避免重複寫入。
+
+        來源為空時不做去重（否則多張無來源的圖會用空字串互相誤判重複）。
+        """
+        if not source_url:
+            return False
         resp = self.client.databases.query(
             database_id=self.database_id,
             filter={"property": "來源出處", "rich_text": {"equals": source_url}},

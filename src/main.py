@@ -11,7 +11,7 @@ import sys
 
 from config import config
 from src import analyzer, scraper, verifier
-from src.models import Record
+from src.models import Record, Validation
 from src.notion_writer import NotionWriter
 
 
@@ -20,7 +20,15 @@ def process_pin(pin) -> Record:
     image, mime = analyzer.download_image(pin.image_url)
     claude = analyzer.analyze_with_claude(image, mime)
     workshop = analyzer.analyze_with_workshop(image, mime)
-    validation = analyzer.cross_validate(image, mime, claude, workshop)
+    if claude.error and workshop.error:
+        # 兩個逆向模型都失敗：省下昂貴的裁判呼叫，直接給 0 分結果。
+        validation = Validation(
+            name="", prompt="", industry=None, category=None, style_tags=[],
+            agreement=0.0, final_confidence=0.0,
+            notes=f"兩模型皆失敗：claude={claude.error}; workshop={workshop.error}",
+        )
+    else:
+        validation = analyzer.cross_validate(image, mime, claude, workshop)
     return Record(pin=pin, claude=claude, workshop=workshop, validation=validation)
 
 
@@ -36,6 +44,8 @@ def run(urls: list[str], dry_run: bool, threshold: float, max_pins: int | None) 
         print(f"\n=== 抓取 {url} ===")
         pins = scraper.scrape(url, max_pins=max_pins)
         print(f"找到 {len(pins)} 張圖")
+        if not pins:
+            print("  （0 張：請確認網址正確、看板是否需登入、或 Pinterest 版面是否改版）")
 
         for i, pin in enumerate(pins, 1):
             try:

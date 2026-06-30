@@ -13,9 +13,9 @@ from typing import List
 from config import config
 from src.models import Pin
 
-# i.pinimg.com 的圖片網址帶有尺寸資料夾 (例如 /236x/, /564x/)，
+# i.pinimg.com 的圖片網址帶有尺寸資料夾 (例如 /236x/, /564x/, /60x60_RS/)，
 # 換成 /originals/ 可拿到最高解析度。
-_SIZE_DIR = re.compile(r"/(\d+x\d*|\d+x)/")
+_SIZE_DIR = re.compile(r"/(\d+x\d*|\d+x)(?:_[A-Z]+)?/")
 
 
 def upscale_image_url(url: str) -> str:

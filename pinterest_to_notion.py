@@ -64,6 +64,27 @@ def _env(name: str, default: str = "") -> str:
     return os.environ.get(name, default).strip()
 
 
+def _env_float(name: str, default: float) -> float:
+    """容錯讀數值環境變數：壞值退回預設，不讓 import 崩潰。"""
+    raw = _env(name)
+    if not raw:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = _env(name)
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
 @dataclass
 class Config:
     anthropic_api_key: str = field(default_factory=lambda: _env("ANTHROPIC_API_KEY"))
@@ -79,12 +100,12 @@ class Config:
     )
 
     confidence_threshold: float = field(
-        default_factory=lambda: float(_env("CONFIDENCE_THRESHOLD", "0.75") or 0.75)
+        default_factory=lambda: _env_float("CONFIDENCE_THRESHOLD", 0.75)
     )
 
     pinterest_storage_state: str = field(default_factory=lambda: _env("PINTEREST_STORAGE_STATE"))
-    max_pins: int = field(default_factory=lambda: int(_env("MAX_PINS", "30") or 30))
-    scroll_rounds: int = field(default_factory=lambda: int(_env("SCROLL_ROUNDS", "8") or 8))
+    max_pins: int = field(default_factory=lambda: _env_int("MAX_PINS", 30))
+    scroll_rounds: int = field(default_factory=lambda: _env_int("SCROLL_ROUNDS", 8))
 
     def require(self, *names: str) -> None:
         missing = [n for n in names if not getattr(self, n)]
@@ -139,7 +160,7 @@ class Record:
 
 # ════════════════════════════ 抓取 (Playwright) ════════════════════════════
 
-_SIZE_DIR = re.compile(r"/(\d+x\d*|\d+x)/")
+_SIZE_DIR = re.compile(r"/(\d+x\d*|\d+x)(?:_[A-Z]+)?/")
 
 
 def upscale_image_url(url: str) -> str:
@@ -271,17 +292,35 @@ def download_image(url: str) -> Tuple[bytes, str]:
     return resp.content, mime
 
 
+def _try_json(segment: str) -> Optional[dict]:
+    """嘗試從一段文字抽最外層 {..} 並解析；失敗回 None。"""
+    start, end = segment.find("{"), segment.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return None
+    try:
+        return json.loads(segment[start:end + 1])
+    except json.JSONDecodeError:
+        return None
+
+
 def _parse_json(text: str) -> dict:
-    """從模型回應抽出 JSON 物件（容忍 ```json 圍欄與前後雜訊）。"""
+    """從模型回應抽出 JSON 物件。
+
+    先直接對整串抽 {..}；失敗才退而逐一嘗試各 ``` 圍欄區塊——
+    圍欄處理只能是「額外嘗試」，不能覆蓋掉原文而丟掉真正的 JSON。
+    """
     text = (text or "").strip()
+    obj = _try_json(text)
+    if obj is not None:
+        return obj
     if "```" in text:
-        text = text.split("```")[1]
-        if text.startswith("json"):
-            text = text[4:]
-    start, end = text.find("{"), text.rfind("}")
-    if start == -1 or end == -1:
-        raise ValueError(f"模型未回傳 JSON：{text[:200]}")
-    return json.loads(text[start:end + 1])
+        for part in text.split("```")[1:]:
+            if part.startswith("json"):
+                part = part[4:]
+            obj = _try_json(part)
+            if obj is not None:
+                return obj
+    raise ValueError(f"模型未回傳可解析的 JSON：{text[:200]}")
 
 
 def analyze_with_claude(image: bytes, mime: str) -> Analysis:
@@ -291,7 +330,7 @@ def analyze_with_claude(image: bytes, mime: str) -> Analysis:
     try:
         resp = client.messages.create(
             model=config.claude_model,
-            max_tokens=1024,
+            max_tokens=2048,
             messages=[{
                 "role": "user",
                 "content": [
@@ -307,16 +346,38 @@ def analyze_with_claude(image: bytes, mime: str) -> Analysis:
         return Analysis(model="claude", error=str(exc))
 
 
+def _workshop_content(extra: dict, messages: list) -> str:
+    """打一次工房請求，穩健取出 message.content（會把伺服器錯誤明確拋出）。"""
+    body = {"model": config.workshop_model, "max_tokens": 2048, "messages": messages, **extra}
+    resp = requests.post(
+        config.workshop_base_url.rstrip("/") + "/chat/completions",
+        json=body,
+        headers={"Authorization": f"Bearer {config.workshop_api_key}"},
+        timeout=_ANALYZE_TIMEOUT,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if isinstance(data, dict) and data.get("error"):
+        raise RuntimeError(f"工房回應錯誤：{data['error']}")
+    choices = (data or {}).get("choices") or []
+    if not choices:
+        raise RuntimeError(f"工房未回傳 choices：{str(data)[:200]}")
+    msg = choices[0].get("message") or {}
+    content = msg.get("content") or msg.get("reasoning_content")
+    if not content:
+        raise RuntimeError("工房回應 content 為空（可能被 max_tokens 截斷或走了 tool-call 路徑）")
+    return content
+
+
 def analyze_with_workshop(image: bytes, mime: str) -> Analysis:
     """AI 工房：OpenAI 相容 chat/completions（看圖）。
 
     相容 LM Studio / Ollama / vLLM / llama.cpp server 等本機伺服器。
-    若你的工房是私有格式，只要改這個函式的請求組裝與回應解析即可，
-    其餘流程（裁判、驗證、寫入）完全不用動。
+    先試 response_format json_object；若伺服器回 400（不支援）或回了無法解析的內容，
+    才退回純提示重試。其他 HTTP 錯誤（404/500…端點或模型問題）直接拋出真實原因，不掩蓋。
+    若你的工房是私有格式，只要改這個函式即可，其餘流程不用動。
     """
     data_uri = f"data:{mime};base64,{base64.b64encode(image).decode()}"
-    base = config.workshop_base_url.rstrip("/") + "/chat/completions"
-    headers = {"Authorization": f"Bearer {config.workshop_api_key}"}
     messages = [{
         "role": "user",
         "content": [
@@ -324,26 +385,31 @@ def analyze_with_workshop(image: bytes, mime: str) -> Analysis:
             {"type": "image_url", "image_url": {"url": data_uri}},
         ],
     }]
-
-    def _call(extra: dict) -> str:
-        body = {"model": config.workshop_model, "max_tokens": 1024, "messages": messages, **extra}
-        resp = requests.post(base, json=body, headers=headers, timeout=_ANALYZE_TIMEOUT)
-        resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"]
-
     try:
-        # 先試 JSON 模式（多數本機伺服器支援）；被拒就退回純提示。
         try:
-            text = _call({"response_format": {"type": "json_object"}})
-        except requests.HTTPError:
-            text = _call({})
-        return _to_analysis("workshop", _parse_json(text))
+            text = _workshop_content({"response_format": {"type": "json_object"}}, messages)
+            return _to_analysis("workshop", _parse_json(text))
+        except (requests.HTTPError, ValueError) as first:
+            # 非-400 的 HTTP 錯誤與 response_format 無關，直接拋出真實原因
+            if isinstance(first, requests.HTTPError):
+                resp = getattr(first, "response", None)
+                if resp is not None and resp.status_code != 400:
+                    raise
+            text = _workshop_content({}, messages)
+            return _to_analysis("workshop", _parse_json(text))
+    except requests.exceptions.ConnectionError:
+        return Analysis(model="workshop",
+                        error="無法連線到 AI 工房，請確認伺服器已啟動且 AI_WORKSHOP_BASE_URL 含 /v1")
     except Exception as exc:  # noqa: BLE001
         return Analysis(model="workshop", error=str(exc))
 
 
 def cross_validate(image: bytes, mime: str, a: Analysis, b: Analysis) -> Validation:
-    """用 Claude 當裁判合成兩份結果，並算最終信心分數。"""
+    """用 Claude 當裁判合成兩份結果，並算最終信心分數。
+
+    裁判呼叫/解析失敗時不讓整張圖作廢——回傳保守結果（信心 0，取信心較高那個
+    模型的 prompt），讓 passes() 自然擋在門檻外，與 analyze_* 的降級策略一致。
+    """
     import anthropic
 
     payload = {
@@ -352,22 +418,30 @@ def cross_validate(image: bytes, mime: str, a: Analysis, b: Analysis) -> Validat
         "model_b": {"model": b.model, "prompt": b.prompt, "style_tags": b.style_tags,
                     "industry": b.industry, "category": b.category, "confidence": b.confidence},
     }
-    client = anthropic.Anthropic(api_key=config.anthropic_api_key)
-    resp = client.messages.create(
-        model=config.claude_model,
-        max_tokens=1024,
-        messages=[{
-            "role": "user",
-            "content": [
-                {"type": "image", "source": {
-                    "type": "base64", "media_type": mime,
-                    "data": base64.b64encode(image).decode()}},
-                {"type": "text", "text": _JUDGE_INSTRUCTION + "\n\n兩模型結果：\n"
-                    + json.dumps(payload, ensure_ascii=False)},
-            ],
-        }],
-    )
-    data = _parse_json(resp.content[0].text)
+    try:
+        client = anthropic.Anthropic(api_key=config.anthropic_api_key)
+        resp = client.messages.create(
+            model=config.claude_model,
+            max_tokens=2048,
+            messages=[{
+                "role": "user",
+                "content": [
+                    {"type": "image", "source": {
+                        "type": "base64", "media_type": mime,
+                        "data": base64.b64encode(image).decode()}},
+                    {"type": "text", "text": _JUDGE_INSTRUCTION + "\n\n兩模型結果：\n"
+                        + json.dumps(payload, ensure_ascii=False)},
+                ],
+            }],
+        )
+        data = _parse_json(resp.content[0].text)
+    except Exception as exc:  # noqa: BLE001 — 裁判失敗 → 保守降級，不中斷整批
+        best = a if a.confidence >= b.confidence else b
+        return Validation(
+            name=best.name, prompt=best.prompt, industry=best.industry,
+            category=best.category, style_tags=best.style_tags,
+            agreement=0.0, final_confidence=0.0, notes=f"裁判失敗：{exc}",
+        )
 
     agreement = _clamp(data.get("agreement", 0.0))
     final_confidence = round(agreement * _mean_conf(a, b), 3)
@@ -439,7 +513,7 @@ def build_properties(record: Record) -> dict:
     props: dict = {
         "名稱": {"title": [{"text": {"content": name[:200]}}]},
         "逆向 Prompt": {"rich_text": [{"text": {"content": v.prompt[:2000]}}]},
-        "來源出處": {"rich_text": [{"text": {"content": record.pin.source_url}}]},
+        "來源出處": {"rich_text": [{"text": {"content": record.pin.source_url[:2000]}}]},
         "備註": {"rich_text": [{"text": {"content": note[:2000]}}]},
         "風格標籤": {"multi_select": [{"name": t} for t in v.style_tags]},
     }
@@ -461,6 +535,8 @@ class NotionWriter:
         self.database_id = database_id or config.notion_database_id
 
     def exists(self, source_url: str) -> bool:
+        if not source_url:  # 無來源不去重，避免多張空來源圖互相誤判重複
+            return False
         resp = self.client.databases.query(
             database_id=self.database_id,
             filter={"property": "來源出處", "rich_text": {"equals": source_url}},
@@ -481,7 +557,15 @@ def process_pin(pin: Pin) -> Record:
     image, mime = download_image(pin.image_url)
     claude = analyze_with_claude(image, mime)
     workshop = analyze_with_workshop(image, mime)
-    validation = cross_validate(image, mime, claude, workshop)
+    if claude.error and workshop.error:
+        # 兩個逆向模型都失敗：省下昂貴的裁判呼叫，直接給 0 分結果。
+        validation = Validation(
+            name="", prompt="", industry=None, category=None, style_tags=[],
+            agreement=0.0, final_confidence=0.0,
+            notes=f"兩模型皆失敗：claude={claude.error}; workshop={workshop.error}",
+        )
+    else:
+        validation = cross_validate(image, mime, claude, workshop)
     return Record(pin=pin, claude=claude, workshop=workshop, validation=validation)
 
 
@@ -497,6 +581,8 @@ def run(urls: List[str], dry_run: bool, threshold: float, max_pins: int | None) 
         print(f"\n=== 抓取 {url} ===")
         pins = scrape(url, max_pins=max_pins)
         print(f"找到 {len(pins)} 張圖")
+        if not pins:
+            print("  （0 張：請確認網址正確、看板是否需登入、或 Pinterest 版面是否改版）")
 
         for i, pin in enumerate(pins, 1):
             try:

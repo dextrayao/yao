@@ -1,4 +1,9 @@
 """不需網路的純邏輯單元測試。"""
+import os
+
+import pytest
+
+import config as config_mod
 from src import analyzer, verifier
 from src.models import Analysis, Pin, Record, Validation
 from src.notion_writer import build_properties
@@ -13,6 +18,9 @@ def test_upscale_image_url():
     # 已是 originals 不變
     url = "https://i.pinimg.com/originals/ab/cd.jpg"
     assert upscale_image_url(url) == url
+    # 帶後綴尺寸目錄 (/60x60_RS/) 也要升級
+    assert upscale_image_url("https://i.pinimg.com/60x60_RS/ab/cd.jpg") == \
+        "https://i.pinimg.com/originals/ab/cd.jpg"
 
 
 def test_normalize_user_url():
@@ -41,6 +49,27 @@ def test_clamp():
     assert analyzer._clamp(0.42) == 0.42
 
 
+def test_parse_json_plain_and_fenced():
+    assert analyzer._parse_json('{"a": 1}') == {"a": 1}
+    assert analyzer._parse_json('```json\n{"a": 1}\n```') == {"a": 1}
+
+
+def test_parse_json_keeps_real_json_outside_fence():
+    # 模型先寫含 ``` 的說明，再在圍欄外給真正 JSON —— 舊版會誤丟，新版要救回
+    text = 'Here is some ```note``` and the answer: {"a": 1, "b": 2}'
+    assert analyzer._parse_json(text) == {"a": 1, "b": 2}
+    # JSON 在第二段圍欄裡
+    text2 = 'intro ```irrelevant``` ```json\n{"x": 9}\n```'
+    assert analyzer._parse_json(text2) == {"x": 9}
+
+
+def test_parse_json_raises_on_no_json():
+    with pytest.raises(ValueError):
+        analyzer._parse_json("完全沒有大括號的文字")
+    with pytest.raises(ValueError):
+        analyzer._parse_json("")
+
+
 def test_mean_conf_ignores_errored_model():
     a = Analysis(model="claude", confidence=0.8)
     b = Analysis(model="workshop", error="boom")
@@ -52,6 +81,20 @@ def test_mean_conf_ignores_errored_model():
 def _validation(conf, prompt="a sunlit room"):
     return Validation(name="n", prompt=prompt, industry=None, category=None,
                       style_tags=[], agreement=0.9, final_confidence=conf)
+
+
+def test_env_numeric_tolerates_bad_values():
+    # 壞值不該讓設定崩潰，要退回預設
+    os.environ["CONFIDENCE_THRESHOLD"] = "abc"
+    os.environ["MAX_PINS"] = "20.5"
+    try:
+        assert config_mod._get_float("CONFIDENCE_THRESHOLD", 0.75) == 0.75
+        assert config_mod._get_int("MAX_PINS", 30) == 30
+        os.environ["CONFIDENCE_THRESHOLD"] = "0.9"
+        assert config_mod._get_float("CONFIDENCE_THRESHOLD", 0.75) == 0.9
+    finally:
+        os.environ.pop("CONFIDENCE_THRESHOLD", None)
+        os.environ.pop("MAX_PINS", None)
 
 
 def test_verifier_threshold():
@@ -84,6 +127,13 @@ def test_build_properties():
     assert {o["name"] for o in props["風格標籤"]["multi_select"]} == {"莫蘭迪綠", "大留白"}
     assert props["原圖"]["files"][0]["external"]["url"].endswith("b.jpg")
     assert "信心分數 0.82" in props["備註"]["rich_text"][0]["text"]["content"]
+
+
+def test_build_properties_truncates_source_url():
+    rec = _record()
+    rec.pin.source_url = "https://x/" + ("q" * 5000)
+    props = build_properties(rec)
+    assert len(props["來源出處"]["rich_text"][0]["text"]["content"]) == 2000
 
 
 def test_build_properties_omits_empty_select():

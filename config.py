@@ -13,6 +13,27 @@ def _get(name: str, default: str = "") -> str:
     return os.environ.get(name, default).strip()
 
 
+def _get_float(name: str, default: float) -> float:
+    """容錯讀數值環境變數：壞值退回預設，不讓 import 崩潰。"""
+    raw = _get(name)
+    if not raw:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
+def _get_int(name: str, default: int) -> int:
+    raw = _get(name)
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
 # Notion「圖像分析資料庫」既有 select / multi_select 選項。
 # 必須與 Notion 後台一致，模型只能從這些值挑選；不在清單內的標籤會被丟棄。
 ALLOWED_INDUSTRY = ["房地產", "節慶"]            # 產業用途 (select)
@@ -42,12 +63,12 @@ class Config:
     notion_database_id: str = field(default_factory=lambda: _get("NOTION_DATABASE_ID"))
 
     confidence_threshold: float = field(
-        default_factory=lambda: float(_get("CONFIDENCE_THRESHOLD", "0.75") or 0.75)
+        default_factory=lambda: _get_float("CONFIDENCE_THRESHOLD", 0.75)
     )
 
     pinterest_storage_state: str = field(default_factory=lambda: _get("PINTEREST_STORAGE_STATE"))
-    max_pins: int = field(default_factory=lambda: int(_get("MAX_PINS", "30") or 30))
-    scroll_rounds: int = field(default_factory=lambda: int(_get("SCROLL_ROUNDS", "8") or 8))
+    max_pins: int = field(default_factory=lambda: _get_int("MAX_PINS", 30))
+    scroll_rounds: int = field(default_factory=lambda: _get_int("SCROLL_ROUNDS", 8))
 
     def require(self, *names: str) -> None:
         """確認指定欄位有值，否則丟出明確錯誤。"""
