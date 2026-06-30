@@ -2,7 +2,7 @@
 // these calls, or existing seeds would render as different creatures.
 
 import { makeRng } from './rng.js';
-import type { BodyForm, Genome } from './types.js';
+import type { BodyForm, EyeStyle, Genome, MouthStyle } from './types.js';
 
 const BODY_FORMS: readonly BodyForm[] = [
   'orb',
@@ -11,6 +11,10 @@ const BODY_FORMS: readonly BodyForm[] = [
   'feathered',
   'nebula',
 ];
+
+// Weighted toward round eyes / smiles so creatures read as cute, not uncanny.
+const EYE_STYLES: readonly EyeStyle[] = ['round', 'round', 'round', 'sleepy', 'star', 'dot'];
+const MOUTH_STYLES: readonly MouthStyle[] = ['smile', 'smile', 'cat', 'dot', 'none'];
 
 const PERSONALITIES: readonly string[] = [
   'serene and contemplative',
@@ -52,6 +56,13 @@ export function deriveGenome(seed: string): Genome {
   const moodBaseline = Math.floor(rng.range(40, 70));
   const personality = rng.pick(PERSONALITIES);
 
+  // --- cute facial DNA appended AFTER the frozen draws above ---
+  const eyeStyle = rng.pick(EYE_STYLES);
+  const eyeSize = Number(rng.range(0.85, 1.35).toFixed(3));
+  const eyeSpacing = Number(rng.range(0.85, 1.25).toFixed(3));
+  const mouthStyle = rng.pick(MOUTH_STYLES);
+  const cheeks = rng.next() < 0.7;
+
   return {
     hue,
     hueSpread,
@@ -68,5 +79,10 @@ export function deriveGenome(seed: string): Genome {
     coreShape,
     moodBaseline,
     personality,
+    eyeStyle,
+    eyeSize,
+    eyeSpacing,
+    mouthStyle,
+    cheeks,
   };
 }

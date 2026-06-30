@@ -9,4 +9,5 @@ export * from './simulate.js';
 export * from './pet.js';
 export * from './render/palette.js';
 export * from './render/shapes.js';
+export * from './render/face.js';
 export * from './render/svg.js';

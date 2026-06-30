@@ -13,14 +13,17 @@ interface StageGate {
   minAgeMs: number; // minimum age since birth
 }
 
-/** Ordered low -> high. */
+// Ordered low -> high. Early volumes are growth-gated (felt within hours of
+// care); later volumes are age-gated (圓 takes ~12 days), so the apex is earned.
 export const STAGE_GATES: readonly StageGate[] = [
   { stage: 'egg', growth: 0, minAgeMs: 0 },
-  { stage: 'wisp', growth: 15, minAgeMs: 2 * HOUR },
-  { stage: 'sprite', growth: 35, minAgeMs: 12 * HOUR },
-  { stage: 'spirit', growth: 55, minAgeMs: 2 * DAY },
-  { stage: 'ethereal', growth: 78, minAgeMs: 5 * DAY },
-  { stage: 'transcendent', growth: 95, minAgeMs: 10 * DAY },
+  { stage: 'kong', growth: 6, minAgeMs: 1 * HOUR },
+  { stage: 'wo', growth: 16, minAgeMs: 5 * HOUR },
+  { stage: 'zhi', growth: 30, minAgeMs: 14 * HOUR },
+  { stage: 'xi', growth: 46, minAgeMs: 1.5 * DAY },
+  { stage: 'shou', growth: 64, minAgeMs: 3 * DAY },
+  { stage: 'xing', growth: 82, minAgeMs: 6 * DAY },
+  { stage: 'yuan', growth: 96, minAgeMs: 12 * DAY },
 ];
 
 /** Highest stage whose growth + age gates are both satisfied. */
@@ -34,7 +37,7 @@ export function stageFor(growth: number, ageMs: number): Stage {
   return result;
 }
 
-/** Numeric rank of a stage (egg=0 .. transcendent=5). */
+/** Numeric rank of a stage (egg=0 .. yuan=7). */
 export function stageRank(stage: Stage): number {
   return STAGE_ORDER.indexOf(stage);
 }

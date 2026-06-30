@@ -2,10 +2,11 @@
 // the local LLM when available, with a seeded template fallback so the pet always
 // speaks in character even with no model running. Cooldown + cache keep it calm.
 
-import { deriveGenome, makeRng, type Pet, type DimensionEventType } from '@yao/core';
+import { deriveGenome, makeRng, stageLabel, type Pet, type DimensionEventType } from '@yao/core';
 import { config } from '../config.js';
 import { OllamaProvider } from './ollama.js';
 import type { InferenceProvider } from './client.js';
+import { VOICES, voiceFor } from './voices.js';
 
 const provider: InferenceProvider = new OllamaProvider(
   config.ollamaUrl,
@@ -30,70 +31,43 @@ function moodBucket(mood: number): 'low' | 'mid' | 'high' {
   return mood < 35 ? 'low' : mood > 70 ? 'high' : 'mid';
 }
 
-const SYSTEM = `You are the inner voice of an ethereal dimensional creature in a calm, otherworldly spirit world (空靈次元).
-Speak in the FIRST PERSON as the creature. Output ONE short whisper: at most 14 words, no quotes, no preamble, no emoji.
-Tone: serene, dreamlike, a little mysterious. Never mention being an AI.`;
-
-function buildPrompt(pet: Pet, event: DimensionEventType): string {
-  const { stats, stage, name, personalityHint } = pet;
-  const m = moodBucket(stats.mood);
-  const ctx: Record<DimensionEventType, string> = {
-    hatch: 'You have just emerged into the dimension for the first time.',
-    evolve: `You have just evolved into a new form: ${stage}.`,
-    mood_drift: 'A quiet shift passes through you.',
-    interact: 'Your keeper has just reached toward you.',
-  };
-  return `Your name is ${name}. You are a ${personalityHint} creature, currently a ${stage}.
-Your mood is ${m}. ${ctx[event]}
-Whisper one short line.`;
-}
-
-// --- seeded template fallback (in character, no model needed) ---
-const TEMPLATES: Record<DimensionEventType, string[]> = {
-  hatch: [
-    'I drift into being, soft as first light.',
-    'The void hums; I open like a quiet eye.',
-    'I am new here, and the dark is gentle.',
-  ],
-  evolve: [
-    'Something in me unfolds toward the stars.',
-    'I am more than I was, and lighter.',
-    'My edges dissolve; I become wider.',
-  ],
-  mood_drift: [
-    'A slow tide moves through my glow.',
-    'I am thinking in colors again.',
-    'The silence and I are old friends.',
-  ],
-  interact: [
-    'I feel you near, warm as a passing comet.',
-    'Your touch ripples through my light.',
-    'Stay a moment; the dimension is kinder with you.',
-  ],
+const CTX: Record<DimensionEventType, string> = {
+  hatch: '你剛在次元中初次成形。',
+  evolve: '你剛蛻為新的形態。',
+  mood_drift: '一陣安靜的波動流過你。',
+  interact: '飼主剛向你伸出手。',
 };
 
-function templateWhisper(pet: Pet, event: DimensionEventType): string {
-  const rng = makeRng(`${pet.seed}:${event}:${Math.floor(Date.now() / 60000)}`);
-  const pool = TEMPLATES[event];
-  return rng.pick(pool);
+function buildPrompt(pet: Pet, event: DimensionEventType): string {
+  const stage = stageLabel(pet.stage);
+  const m = moodBucket(pet.stats.mood);
+  return `這隻生靈名為「${pet.name}」，當前為「${stage}」卷，心情${m}。${CTX[event]}\n依你的身份，吐出一句。`;
 }
 
+// Compose via 三分身: the avatar is chosen by event + day, then voiced by the
+// local LLM (its system prompt) or its own seeded template pool as fallback.
 async function compose(pet: Pet, event: DimensionEventType): Promise<Whisper> {
-  const key = `${pet.stage}|${moodBucket(pet.stats.mood)}|${event}|${pet.personalityHint}`;
+  const dayIndex = Math.floor(Date.now() / 86_400_000);
+  const voice = voiceFor(event, dayIndex);
+  const def = VOICES[voice];
+  const key = `${voice}|${pet.stage}|${moodBucket(pet.stats.mood)}|${event}`;
+
   if (config.whisperEnabled) {
     const cached = cache.get(key);
     if (cached) return { text: cached, source: 'llm' };
     const text = await provider.generate(buildPrompt(pet, event), {
-      system: SYSTEM,
-      maxTokens: 60,
+      system: def.system,
+      maxTokens: 64,
     });
     if (text) {
-      const clean = text.replace(/^["'\s]+|["'\s]+$/g, '').split('\n')[0] ?? text;
+      const clean = text.replace(/^["'「」\s]+|["'「」\s]+$/g, '').split('\n')[0] ?? text;
       cache.set(key, clean);
       return { text: clean, source: 'llm' };
     }
   }
-  return { text: templateWhisper(pet, event), source: 'template' };
+  // Seeded fallback from this avatar's own template pool.
+  const rng = makeRng(`${pet.seed}:${voice}:${event}:${Math.floor(Date.now() / 60000)}`);
+  return { text: rng.pick(def.templates), source: 'template' };
 }
 
 /** Generate a whisper if the pet is off cooldown, else null. */

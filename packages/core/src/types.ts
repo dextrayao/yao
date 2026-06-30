@@ -1,22 +1,42 @@
 // Shared domain types for 空靈次元. Pure data — no behaviour, no IO.
 
-/** Life stages, ordered from birth (egg) to apex (transcendent). */
+// Life stages follow the seven volumes of 《空靈經》: an unhatched egg (卵)
+// ascending through 空·我·知·戲·手·行·圓 (emptiness, self, knowing, play, hand,
+// practice, wholeness). 圓 is the apex where "the face dissolves — 筆下無人".
 export type Stage =
   | 'egg'
-  | 'wisp'
-  | 'sprite'
-  | 'spirit'
-  | 'ethereal'
-  | 'transcendent';
+  | 'kong'
+  | 'wo'
+  | 'zhi'
+  | 'xi'
+  | 'shou'
+  | 'xing'
+  | 'yuan';
 
 export const STAGE_ORDER: readonly Stage[] = [
   'egg',
-  'wisp',
-  'sprite',
-  'spirit',
-  'ethereal',
-  'transcendent',
+  'kong',
+  'wo',
+  'zhi',
+  'xi',
+  'shou',
+  'xing',
+  'yuan',
 ];
+
+/** Display names (the volume each stage embodies). */
+export const STAGE_LABELS: Record<Stage, string> = {
+  egg: '卵',
+  kong: '空',
+  wo: '我',
+  zhi: '知',
+  xi: '戲',
+  shou: '手',
+  xing: '行',
+  yuan: '圓',
+};
+
+export const stageLabel = (stage: Stage): string => STAGE_LABELS[stage];
 
 /** All stats live on a 0..100 scale. */
 export interface Stats {
@@ -39,6 +59,10 @@ export type BodyForm =
   | 'feathered'
   | 'nebula';
 
+/** Cute facial traits — each pet's eyes/mouth are part of its unique DNA. */
+export type EyeStyle = 'round' | 'sleepy' | 'star' | 'dot';
+export type MouthStyle = 'smile' | 'cat' | 'dot' | 'none';
+
 /** Deterministic visual DNA derived from a seed. Never changes over a pet's life. */
 export interface Genome {
   hue: number; // 0..360
@@ -59,6 +83,12 @@ export interface Genome {
   moodBaseline: number; // 0..100
   /** One-line personality descriptor fed to the LLM. */
   personality: string;
+  // --- cute facial DNA (appended; never reorder the draws that fill these) ---
+  eyeStyle: EyeStyle;
+  eyeSize: number; // multiplier ~0.85..1.35
+  eyeSpacing: number; // multiplier ~0.85..1.25
+  mouthStyle: MouthStyle;
+  cheeks: boolean;
 }
 
 export interface MutationEvent {

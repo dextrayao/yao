@@ -61,6 +61,19 @@ html, body {
   transition: width 0.6s ease;
 }
 
+.tabs { display: flex; gap: 8px; margin-top: 12px; border-bottom: 1px solid var(--line); }
+.tab {
+  appearance: none; background: none; border: 0; color: var(--dim);
+  font-size: 0.78rem; letter-spacing: 2px; padding: 6px 2px 8px; cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.tab.on { color: var(--ink); border-bottom-color: var(--accent); }
+
+.footprints { margin-top: 10px; max-height: 18dvh; overflow-y: auto; display: grid; gap: 6px; }
+.footprint { color: var(--dim); font-size: 0.88rem; letter-spacing: 1px; }
+.footprint .fp-mark { color: var(--accent); margin-right: 8px; }
+.footprint .fp-age { color: var(--line); }
+
 .whispers { margin-top: 10px; max-height: 18dvh; overflow-y: auto; display: grid; gap: 6px; }
 .whisper { font-style: italic; color: var(--ink); opacity: 0.92; font-size: 0.92rem; line-height: 1.4; }
 .whisper.template { opacity: 0.7; }

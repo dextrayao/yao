@@ -19,6 +19,8 @@ export interface ShapeData {
   particles: Particle[];
   /** 0..1 — how fully the form is "expressed" at this stage. */
   expression: number;
+  /** Core blob radius — used to place the face. */
+  baseRadius: number;
 }
 
 /** Smooth closed blob path through points sampled around the center. */
@@ -52,7 +54,7 @@ function blobPath(radii: number[], baseRadius: number): string {
 
 export function deriveShapes(genome: Genome, stage: Stage, viewSize = 320): ShapeData {
   const rank = stageRank(stage); // 0..5
-  const expression = 0.35 + (rank / 5) * 0.65; // egg small, transcendent full
+  const expression = 0.35 + (rank / 7) * 0.65; // 卵 small, 圓 full
   const baseRadius = (viewSize * 0.16) * (0.7 + expression * 0.6);
 
   const corePath = blobPath(genome.coreShape, baseRadius);
@@ -78,5 +80,5 @@ export function deriveShapes(genome: Genome, stage: Stage, viewSize = 320): Shap
     });
   }
 
-  return { corePath, auraRadii, particles, expression };
+  return { corePath, auraRadii, particles, expression, baseRadius };
 }

@@ -1,8 +1,10 @@
 // genome + stage (+ optional live stats) -> a self-contained, animated SVG string.
-// Runs identically on the server (thumbnails) and in the browser (live view).
+// Composition: void → aura → particles → rotating petal halo (behind) → upright
+// bobbing body + cute face (front). Runs identically on server and browser.
 
 import { derivePalette } from './palette.js';
 import { deriveShapes } from './shapes.js';
+import { expressionFor, renderFace } from './face.js';
 import { stageRank } from '../evolution.js';
 import type { Genome, Stage, Stats } from '../types.js';
 
@@ -10,7 +12,7 @@ export interface RenderOptions {
   size?: number;
   /** Suffix to keep SVG element ids unique when several render on one page. */
   idSuffix?: string;
-  /** Live stats subtly modulate glow/aura; omit for a neutral portrait. */
+  /** Live stats drive the facial expression + glow; omit for a neutral portrait. */
   stats?: Stats;
 }
 
@@ -26,14 +28,13 @@ export function renderPetSvg(
   const pal = derivePalette(genome);
   const shapes = deriveShapes(genome, stage, size);
   const rank = stageRank(stage);
+  const R = shapes.baseRadius;
+  const expr = expressionFor(stage, opts.stats);
 
-  // Mood (if provided) gently scales luminosity; a low-mood pet glows dimmer.
   const moodFactor = opts.stats ? 0.5 + (opts.stats.mood / 100) * 0.5 : 1;
   const glowOpacity = (0.35 + genome.glowIntensity * 0.5) * moodFactor;
-  const blur = 6 + genome.glowIntensity * 14 + rank * 1.5;
-
+  const blur = 6 + genome.glowIntensity * 14 + rank * 1.2;
   const half = size / 2;
-  const rotateDur = (40 - rank * 4).toFixed(0);
 
   const auras = shapes.auraRadii
     .map((r, i) => {
@@ -43,15 +44,18 @@ export function renderPetSvg(
     })
     .join('');
 
-  // Radial symmetry copies of the core blob.
-  const cores: string[] = [];
+  // Rotating petal halo behind the body: the genome's radial symmetry, now a
+  // slowly-turning ring of soft petals rather than a spinning mandala.
+  const petals: string[] = [];
+  const petalR = R * 1.15;
+  const petalOp = (0.1 + shapes.expression * 0.16).toFixed(3);
   for (let i = 0; i < genome.symmetry; i++) {
     const angle = (360 / genome.symmetry) * i;
-    const op = i === 0 ? 0.95 : (0.18 + shapes.expression * 0.25).toFixed(3);
-    cores.push(
-      `<path d="${shapes.corePath}" transform="rotate(${angle.toFixed(1)})" fill="${pal.core}" opacity="${op}" filter="url(#bloom-${sid})"/>`,
+    petals.push(
+      `<g transform="rotate(${angle.toFixed(1)}) translate(0 ${fmt(-petalR)})"><path d="${shapes.corePath}" transform="scale(0.42)" fill="url(#glow-${sid})" opacity="${petalOp}"/></g>`,
     );
   }
+  const haloDur = (50 - rank * 4).toFixed(0);
 
   const particles = shapes.particles
     .map(
@@ -60,7 +64,12 @@ export function renderPetSvg(
     )
     .join('');
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img" aria-label="ethereal creature">
+  // Upright body. 圓 (dissolved) softens toward pure light: 「筆下無人」.
+  const dissolved = expr === 'dissolved';
+  const bodyOpacity = dissolved ? 0.5 : 0.95;
+  const face = renderFace(genome, expr, R, pal);
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img" aria-label="ethereal spirit creature">
   <defs>
     <radialGradient id="void-${sid}" cx="50%" cy="48%" r="65%">
       <stop offset="0%" stop-color="${pal.accent}" stop-opacity="0.18"/>
@@ -79,20 +88,26 @@ export function renderPetSvg(
   <style>
     .aura { animation: aura-pulse ease-in-out infinite alternate; transform-origin:center; }
     .mote { animation: mote-drift ease-in-out infinite alternate; transform-origin:center; }
-    .core-group { animation: core-spin linear infinite; transform-origin:center; }
+    .halo { animation: halo-spin linear infinite; transform-origin:center; }
+    .body { animation: body-bob ease-in-out infinite alternate; transform-origin:center; }
+    .eyes { animation: blink ease-in-out infinite; transform-origin:center; transform-box:fill-box; }
     @keyframes aura-pulse { from { transform: scale(0.95); } to { transform: scale(1.06); } }
     @keyframes mote-drift { from { transform: translateY(${fmt(-genome.particleDrift * 10)}px); opacity:0.3; } to { transform: translateY(${fmt(genome.particleDrift * 10)}px); opacity:0.9; } }
-    @keyframes core-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-    @media (prefers-reduced-motion: reduce) {
-      .aura, .mote, .core-group { animation: none !important; }
-    }
+    @keyframes halo-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes body-bob { from { transform: translateY(-2.5px); } to { transform: translateY(2.5px); } }
+    @keyframes blink { 0%,92%,100% { transform: scaleY(1); } 96% { transform: scaleY(0.1); } }
+    @media (prefers-reduced-motion: reduce) { .aura,.mote,.halo,.body,.eyes { animation: none !important; } }
   </style>
   <rect x="0" y="0" width="${size}" height="${size}" fill="url(#void-${sid})"/>
   <g transform="translate(${half} ${half})">
     ${auras}
     ${particles}
-    <g class="core-group" style="animation-duration:${rotateDur}s">
-      ${cores.join('\n      ')}
+    <g class="halo" style="animation-duration:${haloDur}s">
+      ${petals.join('\n      ')}
+    </g>
+    <g class="body" style="animation-duration:4s">
+      <path d="${shapes.corePath}" fill="${pal.core}" opacity="${bodyOpacity}" filter="url(#bloom-${sid})"/>
+      ${face}
     </g>
   </g>
 </svg>`;

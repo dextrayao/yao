@@ -1,11 +1,16 @@
 import './styles.css';
-import { deriveGenome, renderPetSvg, type Pet, type Stage } from '@yao/core';
+import { deriveGenome, expressionFor, renderPetSvg, stageLabel, type Pet } from '@yao/core';
 import { api, AuthError, getToken, setToken, type PetView } from './net/api.js';
 
 const app = document.getElementById('app')!;
 let current: Pet | null = null;
 let es: EventSource | null = null;
-let renderedStage: Stage | null = null;
+// Re-render the creature only when its appearance key (stage + expression)
+// changes, so live stat updates don't restart the CSS animations.
+let renderedAppearance: string | null = null;
+
+const appearanceKey = (pet: Pet): string =>
+  `${pet.stage}|${expressionFor(pet.stage, pet.stats)}`;
 
 const esc = (s: string): string =>
   s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -70,7 +75,12 @@ function showPlay(view: PetView): void {
     <div class="stage-wrap" id="stagewrap"></div>
     <div class="panel">
       <div class="stats" id="stats"></div>
+      <div class="tabs">
+        <button class="tab on" data-tab="whispers">低語</button>
+        <button class="tab" data-tab="footprints">足跡</button>
+      </div>
       <div class="whispers" id="whispers"></div>
+      <div class="footprints" id="footprints" hidden></div>
     </div>
     <div class="actions">
       <button class="act" data-act="feed"><span class="ico">✦</span>餵養</button>
@@ -82,13 +92,27 @@ function showPlay(view: PetView): void {
   app.querySelectorAll<HTMLButtonElement>('button.act').forEach((b) =>
     b.addEventListener('click', () => onAction(b.dataset['act']!)),
   );
+  app.querySelectorAll<HTMLButtonElement>('button.tab').forEach((b) =>
+    b.addEventListener('click', () => switchTab(b.dataset['tab']!)),
+  );
 
-  renderedStage = null;
+  renderedAppearance = null;
   updateHeader(view.pet);
   updateStage(view.pet);
   updateStats(view.pet);
   renderWhispers(view.whispers ?? []);
+  renderFootprints(view.pet);
   openStream(view.pet.id);
+}
+
+function switchTab(tab: string): void {
+  app.querySelectorAll<HTMLButtonElement>('button.tab').forEach((b) =>
+    b.classList.toggle('on', b.dataset['tab'] === tab),
+  );
+  const w = app.querySelector('#whispers');
+  const fp = app.querySelector('#footprints');
+  if (w) (w as HTMLElement).hidden = tab !== 'whispers';
+  if (fp) (fp as HTMLElement).hidden = tab !== 'footprints';
 }
 
 // --- partial updates -------------------------------------------------------
@@ -98,18 +122,34 @@ function updateHeader(pet: Pet): void {
   const name = app.querySelector('#name');
   const stage = app.querySelector('#stage');
   if (name) name.innerHTML = `${esc(pet.name)} <span>· ${ageH}h</span>`;
-  if (stage) stage.textContent = pet.stage;
+  if (stage) stage.textContent = stageLabel(pet.stage);
 }
 
 function updateStage(pet: Pet): void {
-  if (pet.stage === renderedStage) return; // avoid resetting CSS animations
-  renderedStage = pet.stage;
+  const key = appearanceKey(pet);
+  if (key === renderedAppearance) return; // avoid resetting CSS animations
+  renderedAppearance = key;
   const wrap = app.querySelector('#stagewrap');
   if (wrap)
     wrap.innerHTML = renderPetSvg(deriveGenome(pet.seed), pet.stage, {
       idSuffix: pet.id.slice(0, 8),
       stats: pet.stats,
     });
+}
+
+// 異文錄·足跡 — every evolution leaves a footprint; they are never erased.
+function renderFootprints(pet: Pet): void {
+  const el = app.querySelector('#footprints');
+  if (!el) return;
+  const log = pet.mutationLog;
+  const born = `<div class="footprint"><span class="fp-mark">✶</span>降生為「${stageLabel('egg')}」</div>`;
+  const steps = log
+    .map((m) => {
+      const h = Math.floor((m.at - pet.bornAt) / 3_600_000);
+      return `<div class="footprint"><span class="fp-mark">○</span>${stageLabel(m.from)} → ${stageLabel(m.to)} <span class="fp-age">· ${h}h</span></div>`;
+    })
+    .join('');
+  el.innerHTML = born + steps;
 }
 
 const STAT_LABELS: [keyof Pet['stats'], string][] = [
@@ -176,6 +216,7 @@ function applyView(view: PetView): void {
   updateHeader(view.pet);
   updateStage(view.pet);
   updateStats(view.pet);
+  renderFootprints(view.pet);
   if (view.whispers) renderWhispers(view.whispers);
 }
 
@@ -192,6 +233,7 @@ function openStream(id: string): void {
         updateHeader(current);
         updateStage(current);
         updateStats(current);
+        renderFootprints(current);
       } else if (msg.kind === 'whisper') {
         prependWhisper(msg.text, msg.source);
       }
