@@ -18,10 +18,8 @@ try:
 except Exception:  # noqa: BLE001
     pass
 
-BASE = os.environ.get(
-    "AI_WORKSHOP_BASE_URL", "https://macmac-studio.tailbfceaf.ts.net/v1"
-).rstrip("/")
-KEY = os.environ.get("AI_WORKSHOP_API_KEY", "local")
+BASE = os.environ.get("AI_WORKSHOP_BASE_URL", "http://localhost:11434/v1").rstrip("/")
+KEY = os.environ.get("AI_WORKSHOP_API_KEY", "ollama")
 
 
 def fetch_models() -> list[str]:

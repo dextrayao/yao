@@ -15,9 +15,9 @@
   ANTHROPIC_API_KEY        Claude 金鑰
   CLAUDE_MODEL             預設 claude-opus-4-8
   AI_WORKSHOP_BASE_URL     工房 OpenAI 相容端點，結尾含 /v1
-                           例：https://macmac-studio.tailbfceaf.ts.net/v1
-  AI_WORKSHOP_API_KEY      工房金鑰（本機伺服器多半隨意填，預設 local）
-  AI_WORKSHOP_MODEL        工房裡「看得懂圖」的模型名（必填）
+                           本機 Ollama 例：http://localhost:11434/v1
+  AI_WORKSHOP_API_KEY      工房金鑰（本機 Ollama 隨意填，預設 ollama）
+  AI_WORKSHOP_MODEL        工房裡「看得懂圖」的模型名，例：qwen2.5vl:7b（必填）
   NOTION_API_KEY           Notion integration token
   NOTION_DATABASE_ID       資料來源 id，預設 e771e46f-f611-405c-8651-432aae03ba11
   CONFIDENCE_THRESHOLD     最終信心門檻，預設 0.75
@@ -90,7 +90,7 @@ class Config:
     anthropic_api_key: str = field(default_factory=lambda: _env("ANTHROPIC_API_KEY"))
     claude_model: str = field(default_factory=lambda: _env("CLAUDE_MODEL", "claude-opus-4-8"))
 
-    workshop_api_key: str = field(default_factory=lambda: _env("AI_WORKSHOP_API_KEY", "local"))
+    workshop_api_key: str = field(default_factory=lambda: _env("AI_WORKSHOP_API_KEY", "ollama"))
     workshop_base_url: str = field(default_factory=lambda: _env("AI_WORKSHOP_BASE_URL"))
     workshop_model: str = field(default_factory=lambda: _env("AI_WORKSHOP_MODEL"))
 

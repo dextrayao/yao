@@ -15,9 +15,8 @@ from src.models import Record, Validation
 from src.notion_writer import NotionWriter
 
 
-def process_pin(pin) -> Record:
-    """對單一 pin 跑完整分析與驗證。"""
-    image, mime = analyzer.download_image(pin.image_url)
+def analyze_record(pin, image: bytes, mime: str) -> Record:
+    """對已取得的圖片 bytes 跑雙模型分析與驗證（不負責下載）。"""
     claude = analyzer.analyze_with_claude(image, mime)
     workshop = analyzer.analyze_with_workshop(image, mime)
     if claude.error and workshop.error:
@@ -30,6 +29,12 @@ def process_pin(pin) -> Record:
     else:
         validation = analyzer.cross_validate(image, mime, claude, workshop)
     return Record(pin=pin, claude=claude, workshop=workshop, validation=validation)
+
+
+def process_pin(pin) -> Record:
+    """對單一 pin 跑完整分析與驗證（先下載再分析）。"""
+    image, mime = analyzer.download_image(pin.image_url)
+    return analyze_record(pin, image, mime)
 
 
 def run(urls: list[str], dry_run: bool, threshold: float, max_pins: int | None) -> int:

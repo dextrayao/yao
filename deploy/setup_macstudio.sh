@@ -24,7 +24,14 @@ else
   echo ".env 已存在，沿用。"
 fi
 
-echo "==> 5/5 探測 AI 工房模型"
+echo "==> 5/6 下載看圖模型到 Ollama（若已存在會略過）"
+if command -v ollama >/dev/null; then
+  ollama pull qwen2.5vl:7b || echo "（pull 失敗，可稍後手動執行 ollama pull qwen2.5vl:7b）"
+else
+  echo "（找不到 ollama 指令，請確認 Ollama 已安裝並啟動）"
+fi
+
+echo "==> 6/6 探測 AI 工房模型"
 python deploy/detect_workshop.py || true
 
 echo
