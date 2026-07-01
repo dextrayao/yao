@@ -17,7 +17,7 @@ interface StageGate {
 // care); later volumes are age-gated (圓 takes ~12 days), so the apex is earned.
 export const STAGE_GATES: readonly StageGate[] = [
   { stage: 'egg', growth: 0, minAgeMs: 0 },
-  { stage: 'kong', growth: 6, minAgeMs: 1 * HOUR },
+  { stage: 'kong', growth: 4, minAgeMs: 12 * 60_000 },
   { stage: 'wo', growth: 16, minAgeMs: 5 * HOUR },
   { stage: 'zhi', growth: 30, minAgeMs: 14 * HOUR },
   { stage: 'xi', growth: 46, minAgeMs: 1.5 * DAY },

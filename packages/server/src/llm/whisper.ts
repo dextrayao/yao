@@ -15,7 +15,7 @@ const provider: InferenceProvider = new OllamaProvider(
 
 // Per-pet cooldown. Local inference is free, so this is short — just enough to
 // avoid spamming the whisper log.
-const COOLDOWN_MS = 3 * 60_000;
+const COOLDOWN_MS = 45_000;
 const lastWhisperAt = new Map<string, number>();
 
 // Cache by (stage, moodBucket, event, personality): many states repeat.
