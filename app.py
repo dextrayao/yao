@@ -32,10 +32,14 @@ notion_ready = bool(config.notion_api_key and config.notion_database_id)
 
 with st.sidebar:
     st.header("設定狀態")
-    st.write(f"{_flag(bool(config.anthropic_api_key))} Claude API")
-    st.write(f"{_flag(workshop_ready)} AI 工房")
-    st.write(f"{_flag(notion_ready)} Notion")
-    st.caption("金鑰在專案根目錄的 `.env` 設定（見 .env.example）。")
+    st.write(f"{_flag(workshop_ready)} AI 工房（本機 Ollama，免費必備）")
+    claude_on = bool(config.anthropic_api_key)
+    st.write(f"{_flag(claude_on)} Claude（選用，加強驗證會用額度）")
+    st.write(f"{_flag(notion_ready)} Notion（要寫入才需要）")
+    if claude_on:
+        st.caption("目前：雙模型交叉驗證（品質高，會用 Claude 額度）")
+    else:
+        st.caption("目前：免費單模型模式（只用本機 Ollama，零 token 成本）")
 
 mode = st.radio("圖片來源", ["手動上傳圖檔", "Pinterest 網址"], horizontal=True)
 
@@ -83,10 +87,8 @@ def _collect_jobs() -> list[_Job]:
 
 if start:
     missing = []
-    if not config.anthropic_api_key:
-        missing.append("Claude")
     if not workshop_ready:
-        missing.append("AI 工房")
+        missing.append("AI 工房（本機 Ollama）")
     if not dry_run and not notion_ready:
         missing.append("Notion")
     if missing:

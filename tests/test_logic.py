@@ -97,6 +97,18 @@ def test_env_numeric_tolerates_bad_values():
         os.environ.pop("MAX_PINS", None)
 
 
+def test_single_model_validation():
+    from src.main import _single_model_validation
+    ok = Analysis(model="workshop", name="n", prompt="p", confidence=0.8,
+                  style_tags=["大留白"], industry="房地產")
+    v = _single_model_validation(ok)
+    assert v.prompt == "p" and v.final_confidence == 0.8 and v.agreement == 1.0
+    assert v.industry == "房地產" and v.style_tags == ["大留白"]
+    # 失敗時給 0 分、空 prompt（會被門檻擋下）
+    v2 = _single_model_validation(Analysis(model="workshop", error="boom"))
+    assert v2.final_confidence == 0.0 and v2.prompt == ""
+
+
 def test_verifier_threshold():
     assert verifier.passes(_validation(0.8), threshold=0.75) is True
     assert verifier.passes(_validation(0.7), threshold=0.75) is False

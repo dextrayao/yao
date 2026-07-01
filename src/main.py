@@ -11,16 +11,36 @@ import sys
 
 from config import config
 from src import analyzer, scraper, verifier
-from src.models import Record, Validation
+from src.models import Analysis, Record, Validation
 from src.notion_writer import NotionWriter
 
 
+def _single_model_validation(a: Analysis) -> Validation:
+    """只用一個模型（免費本機模式）：直接採用其結果，信心=模型自評。"""
+    if a.error:
+        return Validation(name="", prompt="", industry=None, category=None,
+                          style_tags=[], agreement=0.0, final_confidence=0.0,
+                          notes=f"分析失敗：{a.error}")
+    return Validation(name=a.name, prompt=a.prompt, industry=a.industry,
+                      category=a.category, style_tags=a.style_tags,
+                      agreement=1.0, final_confidence=a.confidence,
+                      notes="免費單模型（僅本機 AI 工房）｜信心為模型自評")
+
+
 def analyze_record(pin, image: bytes, mime: str) -> Record:
-    """對已取得的圖片 bytes 跑雙模型分析與驗證（不負責下載）。"""
-    claude = analyzer.analyze_with_claude(image, mime)
+    """對已取得的圖片 bytes 跑分析與驗證（不負責下載）。
+
+    未設 Claude 金鑰 → 免費單模型模式（只用本機 Ollama，零 token 成本）。
+    有設 Claude → 雙模型 + Claude 裁判交叉驗證（品質較高，會用到 Claude 額度）。
+    """
     workshop = analyzer.analyze_with_workshop(image, mime)
+    if not config.anthropic_api_key:
+        claude = Analysis(model="claude", error="未設定 Claude（免費單模型模式）")
+        return Record(pin=pin, claude=claude, workshop=workshop,
+                      validation=_single_model_validation(workshop))
+
+    claude = analyzer.analyze_with_claude(image, mime)
     if claude.error and workshop.error:
-        # 兩個逆向模型都失敗：省下昂貴的裁判呼叫，直接給 0 分結果。
         validation = Validation(
             name="", prompt="", industry=None, category=None, style_tags=[],
             agreement=0.0, final_confidence=0.0,
@@ -38,7 +58,7 @@ def process_pin(pin) -> Record:
 
 
 def run(urls: list[str], dry_run: bool, threshold: float, max_pins: int | None) -> int:
-    config.require("anthropic_api_key", "workshop_api_key", "workshop_base_url", "workshop_model")
+    config.require("workshop_base_url", "workshop_model")  # Claude 選用；本機工房必填
     if not dry_run:
         config.require("notion_api_key", "notion_database_id")
         writer = NotionWriter()

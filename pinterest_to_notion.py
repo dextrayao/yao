@@ -553,12 +553,28 @@ class NotionWriter:
 
 # ════════════════════════════ 流程編排 / CLI ════════════════════════════
 
+def _single_model_validation(a: Analysis) -> Validation:
+    """只用一個模型（免費本機模式）：直接採用其結果，信心=模型自評。"""
+    if a.error:
+        return Validation(name="", prompt="", industry=None, category=None,
+                          style_tags=[], agreement=0.0, final_confidence=0.0,
+                          notes=f"分析失敗：{a.error}")
+    return Validation(name=a.name, prompt=a.prompt, industry=a.industry,
+                      category=a.category, style_tags=a.style_tags,
+                      agreement=1.0, final_confidence=a.confidence,
+                      notes="免費單模型（僅本機 AI 工房）｜信心為模型自評")
+
+
 def process_pin(pin: Pin) -> Record:
     image, mime = download_image(pin.image_url)
-    claude = analyze_with_claude(image, mime)
     workshop = analyze_with_workshop(image, mime)
+    # 未設 Claude → 免費單模型模式（只用本機 Ollama，零 token 成本）
+    if not config.anthropic_api_key:
+        claude = Analysis(model="claude", error="未設定 Claude（免費單模型模式）")
+        return Record(pin=pin, claude=claude, workshop=workshop,
+                      validation=_single_model_validation(workshop))
+    claude = analyze_with_claude(image, mime)
     if claude.error and workshop.error:
-        # 兩個逆向模型都失敗：省下昂貴的裁判呼叫，直接給 0 分結果。
         validation = Validation(
             name="", prompt="", industry=None, category=None, style_tags=[],
             agreement=0.0, final_confidence=0.0,
@@ -570,7 +586,7 @@ def process_pin(pin: Pin) -> Record:
 
 
 def run(urls: List[str], dry_run: bool, threshold: float, max_pins: int | None) -> int:
-    config.require("anthropic_api_key", "workshop_base_url", "workshop_model")
+    config.require("workshop_base_url", "workshop_model")  # Claude 選用；本機工房必填
     writer = None
     if not dry_run:
         config.require("notion_api_key", "notion_database_id")
