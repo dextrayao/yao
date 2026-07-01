@@ -10,6 +10,7 @@ import { requireAuth } from './auth.js';
 import { petRoutes } from './routes/pets.js';
 import { streamRoutes } from './routes/stream.js';
 import { dimensionRoutes } from './routes/dimension.js';
+import { adminRoutes } from './routes/admin.js';
 import { startTicker, stopTicker } from './ticker.js';
 import { tickAll } from './service.js';
 import { whisperProvider } from './llm/whisper.js';
@@ -25,6 +26,7 @@ app.addHook('onRequest', (req, reply, done) => {
 await app.register(petRoutes);
 await app.register(streamRoutes);
 await app.register(dimensionRoutes);
+await app.register(adminRoutes);
 
 app.get('/api/health', async () => ({
   ok: true,

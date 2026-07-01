@@ -69,9 +69,9 @@ html, body {
 
 .stage-wrap {
   display: flex; align-items: center; justify-content: center;
-  position: relative; min-height: 40dvh;
+  position: relative; min-height: 44dvh;
 }
-.stage-wrap svg { width: min(78vw, 360px); height: auto; filter: drop-shadow(0 0 40px rgba(120,150,255,0.12)); }
+.stage-wrap svg { width: min(84vw, 400px); height: auto; filter: drop-shadow(0 0 46px rgba(120,150,255,0.16)); }
 
 /* --- reaction & evolution animations --- */
 .stage-wrap.react-feed svg { animation: react-feed 0.6s ease; }
@@ -142,15 +142,27 @@ html, body {
 .whisper.template { opacity: 0.7; }
 .whisper-empty { color: var(--dim); font-style: italic; font-size: 0.85rem; }
 
-.actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 11px; margin-top: 4px; }
 button.act {
-  appearance: none; border: 1px solid var(--line); background: var(--glass);
-  color: var(--ink); border-radius: 14px; padding: 14px 6px; font-size: 0.85rem;
-  cursor: pointer; transition: transform 0.1s ease, background 0.2s ease;
-  min-height: 52px;
+  appearance: none; border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(140,170,255,0.10), rgba(120,140,255,0.04));
+  color: var(--ink); border-radius: 20px; padding: 16px 6px 13px; font-size: 0.95rem;
+  cursor: pointer; transition: transform 0.12s ease, background 0.2s ease, box-shadow 0.2s ease;
+  min-height: 72px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
 }
-button.act:active { transform: scale(0.94); background: rgba(140,180,255,0.16); }
-button.act .ico { display: block; font-size: 1.25rem; margin-bottom: 2px; }
+button.act:active {
+  transform: scale(0.93);
+  background: linear-gradient(180deg, rgba(160,190,255,0.24), rgba(140,160,255,0.12));
+  box-shadow: 0 0 22px rgba(140,170,255,0.28);
+}
+button.act .ico { display: block; font-size: 1.7rem; line-height: 1; }
+
+.icon-btn {
+  appearance: none; background: var(--glass); border: 1px solid var(--line);
+  border-radius: 999px; width: 34px; height: 30px; font-size: 0.95rem; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.icon-btn:active { transform: scale(0.92); }
 
 .center-screen {
   grid-row: 1 / -1; display: flex; flex-direction: column;

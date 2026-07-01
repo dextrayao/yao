@@ -39,6 +39,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ action, value }),
     }),
+  update: () => req<{ ok: boolean; updated: boolean }>('/api/update', { method: 'POST' }),
   streamUrl: (id: string): string => {
     const token = getToken();
     return `/api/stream/${id}${token ? `?token=${encodeURIComponent(token)}` : ''}`;

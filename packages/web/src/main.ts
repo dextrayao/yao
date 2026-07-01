@@ -1,6 +1,7 @@
 import './styles.css';
 import { deriveGenome, expressionFor, renderPetSvg, stageLabel, type Pet } from '@yao/core';
 import { api, AuthError, getToken, setToken, type PetView } from './net/api.js';
+import { initAudio, isMuted, sfx, toggleMute, type Sfx } from './audio.js';
 
 const app = document.getElementById('app')!;
 let current: Pet | null = null;
@@ -71,6 +72,8 @@ function showPlay(view: PetView): void {
     <header class="header">
       <div class="name" id="name"></div>
       <div class="head-right">
+        <button class="icon-btn" id="mute" aria-label="音效">${isMuted() ? '🔇' : '🔊'}</button>
+        <button class="howto-btn" id="update" aria-label="更新">更新</button>
         <button class="howto-btn" id="howto" aria-label="玩法">玩法</button>
         <div class="stage" id="stage"></div>
       </div>
@@ -99,6 +102,12 @@ function showPlay(view: PetView): void {
     b.addEventListener('click', () => switchTab(b.dataset['tab']!)),
   );
   app.querySelector('#howto')?.addEventListener('click', () => showHowTo());
+  app.querySelector('#update')?.addEventListener('click', () => onUpdate());
+  app.querySelector('#mute')?.addEventListener('click', (e) => {
+    initAudio();
+    const m = toggleMute();
+    (e.currentTarget as HTMLElement).textContent = m ? '🔇' : '🔊';
+  });
 
   renderedAppearance = null;
   updateHeader(view.pet);
@@ -177,8 +186,11 @@ function updateStage(pet: Pet): void {
       idSuffix: pet.id.slice(0, 8),
       stats: pet.stats,
     });
-  // Evolution transition flash when the volume changes (not on first render).
-  if (lastStage !== null && lastStage !== pet.stage) reactAnim('evolving', 1100);
+  // Evolution transition flash + chime when the volume changes (not first render).
+  if (lastStage !== null && lastStage !== pet.stage) {
+    reactAnim('evolving', 1100);
+    sfx('evolve');
+  }
   lastStage = pet.stage;
 }
 
@@ -266,11 +278,43 @@ async function onAction(action: string): Promise<void> {
       applyView(view);
       return;
     }
+    initAudio(); // first gesture unlocks + starts ambience
     const react = REACT_BY_ACTION[action];
-    if (react) reactAnim(react);
+    if (react) {
+      reactAnim(react);
+      sfx(action as Sfx);
+    }
     const view = await api.interact(current.id, action);
     applyView(view);
   } catch (e) {
+    handleError(e);
+  }
+}
+
+// One-tap self-update: pull latest + rebuild on the server, then reload.
+async function onUpdate(): Promise<void> {
+  const btn = app.querySelector<HTMLButtonElement>('#update');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '更新中…';
+  }
+  try {
+    const r = await api.update();
+    if (r.updated) {
+      if (btn) btn.textContent = '完成，重載…';
+      setTimeout(() => location.reload(), 700);
+    } else if (btn) {
+      btn.textContent = '已最新';
+      setTimeout(() => {
+        btn.textContent = '更新';
+        btn.disabled = false;
+      }, 1500);
+    }
+  } catch (e) {
+    if (btn) {
+      btn.textContent = '更新失敗';
+      btn.disabled = false;
+    }
     handleError(e);
   }
 }
