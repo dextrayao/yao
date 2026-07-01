@@ -70,7 +70,10 @@ function showPlay(view: PetView): void {
   app.innerHTML = `
     <header class="header">
       <div class="name" id="name"></div>
-      <div class="stage" id="stage"></div>
+      <div class="head-right">
+        <button class="howto-btn" id="howto" aria-label="玩法">玩法</button>
+        <div class="stage" id="stage"></div>
+      </div>
     </header>
     <div class="stage-wrap" id="stagewrap"></div>
     <div class="panel">
@@ -95,6 +98,7 @@ function showPlay(view: PetView): void {
   app.querySelectorAll<HTMLButtonElement>('button.tab').forEach((b) =>
     b.addEventListener('click', () => switchTab(b.dataset['tab']!)),
   );
+  app.querySelector('#howto')?.addEventListener('click', () => showHowTo());
 
   renderedAppearance = null;
   updateHeader(view.pet);
@@ -103,6 +107,42 @@ function showPlay(view: PetView): void {
   renderWhispers(view.whispers ?? []);
   renderFootprints(view.pet);
   openStream(view.pet.id);
+
+  if (!localStorage.getItem(HOWTO_KEY)) showHowTo(); // first-run onboarding
+}
+
+// 玩法教學 — 去聖語氣：它是一面鏡，不是一場輸贏。
+const HOWTO_KEY = 'yao_howto_seen';
+
+function showHowTo(): void {
+  const prev = document.querySelector('.howto');
+  if (prev) prev.remove();
+  const el = document.createElement('div');
+  el.className = 'howto';
+  el.innerHTML = `
+    <div class="howto-card">
+      <h2>空靈次元 · 玩法</h2>
+      <p class="lead">它是一面鏡，不是一場輸贏。</p>
+      <p>你將陪一隻獨一無二的生靈，從「卵」自己長到「圓」（約 12 天）。<br>
+         你不在，它也在長；你回來，讓它更好。</p>
+      <ul class="howto-list">
+        <li><b>✦ 餵養</b>　它餓了，餵它</li>
+        <li><b>❀ 安撫</b>　讓它安定、生出靈力</li>
+        <li><b>◌ 凝視</b>　靜靜看它，它會低語</li>
+        <li><b>✎ 命名</b>　給它一個名</li>
+      </ul>
+      <p class="dimlead">心情好、不太餓時，它長得更快。<br>每一次蛻變都留在「足跡」裡，永不抹去。</p>
+      <button class="btn-primary" id="howto-close">開始陪伴</button>
+    </div>`;
+  document.body.appendChild(el);
+  const close = (): void => {
+    localStorage.setItem(HOWTO_KEY, '1');
+    el.remove();
+  };
+  el.querySelector('#howto-close')?.addEventListener('click', close);
+  el.addEventListener('click', (e) => {
+    if (e.target === el) close(); // tap backdrop to dismiss
+  });
 }
 
 function switchTab(tab: string): void {
@@ -125,6 +165,8 @@ function updateHeader(pet: Pet): void {
   if (stage) stage.textContent = stageLabel(pet.stage);
 }
 
+let lastStage: string | null = null;
+
 function updateStage(pet: Pet): void {
   const key = appearanceKey(pet);
   if (key === renderedAppearance) return; // avoid resetting CSS animations
@@ -135,7 +177,27 @@ function updateStage(pet: Pet): void {
       idSuffix: pet.id.slice(0, 8),
       stats: pet.stats,
     });
+  // Evolution transition flash when the volume changes (not on first render).
+  if (lastStage !== null && lastStage !== pet.stage) reactAnim('evolving', 1100);
+  lastStage = pet.stage;
 }
+
+// Brief reaction animation on the creature stage. Adds a class the CSS animates,
+// then removes it so it can retrigger. Respects prefers-reduced-motion via CSS.
+function reactAnim(cls: string, durMs = 650): void {
+  const wrap = app.querySelector('#stagewrap');
+  if (!wrap) return;
+  wrap.classList.remove(cls);
+  void (wrap as HTMLElement).offsetWidth; // reflow so re-adding restarts it
+  wrap.classList.add(cls);
+  window.setTimeout(() => wrap.classList.remove(cls), durMs);
+}
+
+const REACT_BY_ACTION: Record<string, string> = {
+  feed: 'react-feed',
+  soothe: 'react-soothe',
+  observe: 'react-observe',
+};
 
 // 異文錄·足跡 — every evolution leaves a footprint; they are never erased.
 function renderFootprints(pet: Pet): void {
@@ -204,6 +266,8 @@ async function onAction(action: string): Promise<void> {
       applyView(view);
       return;
     }
+    const react = REACT_BY_ACTION[action];
+    if (react) reactAnim(react);
     const view = await api.interact(current.id, action);
     applyView(view);
   } catch (e) {

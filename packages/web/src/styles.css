@@ -35,17 +35,80 @@ html, body {
 .header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .header .name { font-size: 1.5rem; font-weight: 600; letter-spacing: 0.5px; }
 .header .name span { color: var(--dim); font-size: 0.95rem; font-weight: 400; }
+.header .head-right { display: flex; align-items: center; gap: 8px; }
 .header .stage {
   font-size: 0.72rem; text-transform: uppercase; letter-spacing: 2px;
   color: var(--accent); border: 1px solid var(--line); border-radius: 999px;
   padding: 4px 10px; white-space: nowrap;
 }
+.howto-btn {
+  appearance: none; background: var(--glass); border: 1px solid var(--line);
+  color: var(--dim); font-size: 0.72rem; letter-spacing: 2px; border-radius: 999px;
+  padding: 4px 10px; cursor: pointer;
+}
+.howto-btn:active { color: var(--ink); }
+
+.howto {
+  position: fixed; inset: 0; z-index: 50; display: flex; align-items: center;
+  justify-content: center; padding: 24px; padding-top: calc(var(--safe-top) + 24px);
+  background: rgba(4, 4, 10, 0.7); backdrop-filter: blur(10px);
+}
+.howto-card {
+  max-width: 380px; width: 100%; border: 1px solid var(--line);
+  border-radius: 22px; background: linear-gradient(180deg, rgba(20,22,44,0.9), rgba(10,10,20,0.9));
+  padding: 26px 22px; text-align: center;
+}
+.howto-card h2 { margin: 0 0 6px; font-weight: 600; letter-spacing: 3px; font-size: 1.15rem; }
+.howto-card .lead { color: var(--accent); margin: 0 0 14px; font-size: 0.95rem; letter-spacing: 1px; }
+.howto-card p { color: var(--ink); opacity: 0.9; line-height: 1.7; font-size: 0.9rem; margin: 0 0 14px; }
+.howto-card .dimlead { color: var(--dim); font-size: 0.82rem; }
+.howto-list { list-style: none; padding: 0; margin: 0 0 16px; display: grid; gap: 8px; text-align: left; }
+.howto-list li { color: var(--ink); font-size: 0.92rem; }
+.howto-list b { color: var(--accent); font-weight: 600; margin-right: 6px; }
+.howto-card .btn-primary { margin-top: 4px; }
 
 .stage-wrap {
   display: flex; align-items: center; justify-content: center;
   position: relative; min-height: 40dvh;
 }
 .stage-wrap svg { width: min(78vw, 360px); height: auto; filter: drop-shadow(0 0 40px rgba(120,150,255,0.12)); }
+
+/* --- reaction & evolution animations --- */
+.stage-wrap.react-feed svg { animation: react-feed 0.6s ease; }
+.stage-wrap.react-soothe svg { animation: react-soothe 0.7s ease; }
+.stage-wrap.react-observe svg { animation: react-glow 0.7s ease; }
+.stage-wrap.evolving svg { animation: react-bloom 1s ease; }
+@keyframes react-feed {
+  0%,100% { transform: translateY(0) rotate(0); }
+  20% { transform: translateY(-8px) rotate(-4deg) scale(1.04); }
+  45% { transform: translateY(0) rotate(4deg) scale(0.98); }
+  70% { transform: translateY(-4px) rotate(-2deg) scale(1.02); }
+}
+@keyframes react-soothe {
+  0%,100% { filter: none; transform: scale(1); }
+  50% { filter: brightness(1.5) saturate(1.2); transform: scale(1.05); }
+}
+@keyframes react-glow {
+  0%,100% { filter: none; }
+  50% { filter: brightness(1.35) drop-shadow(0 0 26px rgba(150,180,255,0.55)); }
+}
+@keyframes react-bloom {
+  0% { filter: brightness(1); transform: scale(1); }
+  35% { filter: brightness(2.2) saturate(1.4); transform: scale(1.14); }
+  100% { filter: brightness(1); transform: scale(1); }
+}
+.stage-wrap.react-observe::after, .stage-wrap.evolving::after {
+  content: ""; position: absolute; left: 50%; top: 50%;
+  width: 42%; height: 42%; border-radius: 50%; border: 2px solid var(--accent);
+  transform: translate(-50%, -50%) scale(0.4); opacity: 0.8; pointer-events: none;
+  animation: ring-out 0.8s ease-out forwards;
+}
+.stage-wrap.evolving::after { border-color: #fff; animation-duration: 1s; }
+@keyframes ring-out { to { transform: translate(-50%,-50%) scale(1.8); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .stage-wrap svg { animation: none !important; }
+  .stage-wrap::after { display: none !important; }
+}
 
 .panel {
   border: 1px solid var(--line); background: var(--glass);
