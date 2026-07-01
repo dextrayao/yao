@@ -20,7 +20,7 @@ export interface PetView {
 async function req<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers = new Headers(init.headers);
-  headers.set('content-type', 'application/json');
+  if (init.body != null) headers.set('content-type', 'application/json');
   if (token) headers.set('authorization', `Bearer ${token}`);
   const res = await fetch(path, { ...init, headers });
   if (res.status === 401) throw new AuthError('unauthorized');

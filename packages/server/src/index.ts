@@ -17,6 +17,17 @@ import { whisperProvider } from './llm/whisper.js';
 
 const app = Fastify({ logger: { level: 'info' }, trustProxy: true });
 
+// Tolerate empty JSON bodies (e.g. POST /api/update with no payload) instead of
+// rejecting with FST_ERR_CTP_EMPTY_JSON_BODY.
+app.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
+  if (!body || (typeof body === 'string' && body.trim() === '')) return done(null, {});
+  try {
+    done(null, JSON.parse(body as string));
+  } catch (err) {
+    done(err as Error, undefined);
+  }
+});
+
 // Guard every /api route. Static assets (the PWA shell) need no token.
 app.addHook('onRequest', (req, reply, done) => {
   if (req.url.startsWith('/api/')) return requireAuth(req, reply, done);

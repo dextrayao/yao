@@ -1,6 +1,7 @@
 // genome + stage (+ optional live stats) -> a self-contained, animated SVG string.
-// Composition: void → aura → particles → rotating petal halo (behind) → upright
-// bobbing body + cute face (front). Runs identically on server and browser.
+// Aesthetic: a "quantum world" spirit — a luminous probability-cloud core wrapped
+// in tilted electron orbits with travelling nodes, on a transparent background so
+// it floats in the page's deep space. Cohesive, designed, non-human, alive.
 
 import { derivePalette } from './palette.js';
 import { deriveShapes } from './shapes.js';
@@ -30,33 +31,43 @@ export function renderPetSvg(
   const rank = stageRank(stage);
   const R = shapes.baseRadius;
   const expr = expressionFor(stage, opts.stats);
-
-  const moodFactor = opts.stats ? 0.5 + (opts.stats.mood / 100) * 0.5 : 1;
-  const glowOpacity = (0.35 + genome.glowIntensity * 0.5) * moodFactor;
-  const blur = 6 + genome.glowIntensity * 14 + rank * 1.2;
   const half = size / 2;
 
-  const auras = shapes.auraRadii
+  const moodFactor = opts.stats ? 0.55 + (opts.stats.mood / 100) * 0.45 : 1;
+  const glowOpacity = (0.4 + genome.glowIntensity * 0.4) * moodFactor;
+  const bodyBlur = 3 + genome.glowIntensity * 5;
+
+  // Probability cloud — soft nested glows.
+  const cloud = shapes.auraRadii
     .map((r, i) => {
-      const op = (glowOpacity * (0.5 - i * 0.08)).toFixed(3);
-      const dur = (5 + i * 1.3).toFixed(1);
-      return `<circle class="aura" cx="0" cy="0" r="${fmt(r)}" fill="url(#glow-${sid})" opacity="${op}" style="animation-duration:${dur}s"/>`;
+      const op = (glowOpacity * (0.5 - i * 0.09)).toFixed(3);
+      const dur = (5 + i * 1.4).toFixed(1);
+      return `<circle class="aura" cx="0" cy="0" r="${fmt(r)}" fill="url(#cloud-${sid})" opacity="${op}" style="animation-duration:${dur}s"/>`;
     })
     .join('');
 
-  // Rotating petal halo behind the body: the genome's radial symmetry, now a
-  // slowly-turning ring of soft petals rather than a spinning mandala.
-  const petals: string[] = [];
-  const petalR = R * 1.15;
-  const petalOp = (0.1 + shapes.expression * 0.16).toFixed(3);
-  for (let i = 0; i < genome.symmetry; i++) {
-    const angle = (360 / genome.symmetry) * i;
-    petals.push(
-      `<g transform="rotate(${angle.toFixed(1)}) translate(0 ${fmt(-petalR)})"><path d="${shapes.corePath}" transform="scale(0.42)" fill="url(#glow-${sid})" opacity="${petalOp}"/></g>`,
+  // Electron orbits — tilted elliptical rings, each with a travelling node.
+  // Outer static group tilts + flattens a circle into an ellipse; an inner
+  // group spins so the node orbits. More orbits appear as the pet matures.
+  const orbitCount = expr === 'dissolved' ? 0 : Math.min(4, 2 + Math.floor(rank / 2));
+  const orbits: string[] = [];
+  for (let i = 0; i < orbitCount; i++) {
+    const tilt = (150 / orbitCount) * i + 20;
+    const rO = R * (1.35 + i * 0.28);
+    const dur = (7 + i * 2.4).toFixed(1);
+    const dir = i % 2 === 0 ? 'normal' : 'reverse';
+    const node = R * 0.06 + 1.5;
+    orbits.push(
+      `<g transform="rotate(${tilt.toFixed(1)}) scale(1 0.4)">
+        <circle cx="0" cy="0" r="${fmt(rO)}" fill="none" stroke="${pal.glow}" stroke-width="1" opacity="0.22"/>
+        <g class="orbit-spin" style="animation-duration:${dur}s;animation-direction:${dir}">
+          <circle cx="${fmt(rO)}" cy="0" r="${fmt(node)}" fill="${pal.particle}"/>
+        </g>
+      </g>`,
     );
   }
-  const haloDur = (50 - rank * 4).toFixed(0);
 
+  // Quantum motes.
   const particles = shapes.particles
     .map(
       (p) =>
@@ -64,49 +75,46 @@ export function renderPetSvg(
     )
     .join('');
 
-  // Upright body. 圓 (dissolved) softens toward pure light: 「筆下無人」.
   const dissolved = expr === 'dissolved';
-  const bodyOpacity = dissolved ? 0.5 : 0.95;
+  const bodyOpacity = dissolved ? 0.55 : 1;
   const face = renderFace(genome, expr, R, pal);
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img" aria-label="ethereal spirit creature">
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img" aria-label="quantum spirit creature">
   <defs>
-    <radialGradient id="void-${sid}" cx="50%" cy="48%" r="65%">
-      <stop offset="0%" stop-color="${pal.accent}" stop-opacity="0.18"/>
-      <stop offset="60%" stop-color="${pal.void}" stop-opacity="0.95"/>
-      <stop offset="100%" stop-color="${pal.void}"/>
-    </radialGradient>
-    <radialGradient id="glow-${sid}" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="${pal.glow}" stop-opacity="0.9"/>
+    <radialGradient id="cloud-${sid}" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="${pal.glow}" stop-opacity="0.85"/>
+      <stop offset="55%" stop-color="${pal.accent}" stop-opacity="0.28"/>
       <stop offset="100%" stop-color="${pal.glow}" stop-opacity="0"/>
     </radialGradient>
-    <filter id="bloom-${sid}" x="-80%" y="-80%" width="260%" height="260%">
-      <feGaussianBlur stdDeviation="${blur.toFixed(1)}" result="b"/>
+    <radialGradient id="body-${sid}" cx="42%" cy="38%" r="68%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="30%" stop-color="${pal.core}"/>
+      <stop offset="100%" stop-color="${pal.coreEdge}"/>
+    </radialGradient>
+    <filter id="soft-${sid}" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="${bodyBlur.toFixed(1)}" result="b"/>
       <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
   </defs>
   <style>
     .aura { animation: aura-pulse ease-in-out infinite alternate; transform-origin:center; }
     .mote { animation: mote-drift ease-in-out infinite alternate; transform-origin:center; }
-    .halo { animation: halo-spin linear infinite; transform-origin:center; }
+    .orbit-spin { animation: orbit-spin linear infinite; transform-origin:0 0; }
     .body { animation: body-bob ease-in-out infinite alternate; transform-origin:center; }
     .eyes { animation: blink ease-in-out infinite; transform-origin:center; transform-box:fill-box; }
-    @keyframes aura-pulse { from { transform: scale(0.95); } to { transform: scale(1.06); } }
-    @keyframes mote-drift { from { transform: translateY(${fmt(-genome.particleDrift * 10)}px); opacity:0.3; } to { transform: translateY(${fmt(genome.particleDrift * 10)}px); opacity:0.9; } }
-    @keyframes halo-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-    @keyframes body-bob { from { transform: translateY(-2.5px); } to { transform: translateY(2.5px); } }
-    @keyframes blink { 0%,92%,100% { transform: scaleY(1); } 96% { transform: scaleY(0.1); } }
-    @media (prefers-reduced-motion: reduce) { .aura,.mote,.halo,.body,.eyes { animation: none !important; } }
+    @keyframes aura-pulse { from { transform: scale(0.94); } to { transform: scale(1.08); } }
+    @keyframes mote-drift { from { transform: translateY(${fmt(-genome.particleDrift * 8)}px); opacity:0.25; } to { transform: translateY(${fmt(genome.particleDrift * 8)}px); opacity:0.85; } }
+    @keyframes orbit-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    @keyframes body-bob { from { transform: translateY(-3px) scale(0.99); } to { transform: translateY(3px) scale(1.01); } }
+    @keyframes blink { 0%,92%,100% { transform: scaleY(1); } 96% { transform: scaleY(0.12); } }
+    @media (prefers-reduced-motion: reduce) { .aura,.mote,.orbit-spin,.body,.eyes { animation: none !important; } }
   </style>
-  <rect x="0" y="0" width="${size}" height="${size}" fill="url(#void-${sid})"/>
   <g transform="translate(${half} ${half})">
-    ${auras}
+    ${cloud}
     ${particles}
-    <g class="halo" style="animation-duration:${haloDur}s">
-      ${petals.join('\n      ')}
-    </g>
+    ${orbits.join('\n    ')}
     <g class="body" style="animation-duration:4s">
-      <path d="${shapes.corePath}" fill="${pal.core}" opacity="${bodyOpacity}" filter="url(#bloom-${sid})"/>
+      <path d="${shapes.corePath}" fill="url(#body-${sid})" opacity="${bodyOpacity}" filter="url(#soft-${sid})"/>
       ${face}
     </g>
   </g>

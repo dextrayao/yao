@@ -65,6 +65,39 @@ function startAmbient(): void {
   lfo.connect(lfoGain);
   lfoGain.connect(lp.frequency);
   lfo.start();
+
+  // Generative pad: soft pentatonic notes drift over the drone — spacetime echoes.
+  scheduleMelody();
+}
+
+let melodyTimer: number | null = null;
+const SCALE = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33];
+
+/** A soft pad note with a slow swell — ethereal, not percussive. */
+function padNote(freq: number, dur: number, peak: number): void {
+  if (!ctx || !master) return;
+  const o = ctx.createOscillator();
+  o.type = 'sine';
+  o.frequency.value = freq;
+  const g = ctx.createGain();
+  const t0 = ctx.currentTime;
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.exponentialRampToValueAtTime(peak, t0 + 0.6); // slow swell
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g);
+  g.connect(master);
+  o.start(t0);
+  o.stop(t0 + dur + 0.1);
+}
+
+function scheduleMelody(): void {
+  if (!ctx || !master) return;
+  if (!muted && Math.random() < 0.82) {
+    const f = SCALE[Math.floor(Math.random() * SCALE.length)] ?? 329.63;
+    padNote(f, 2.8, 0.05);
+    if (Math.random() < 0.4) padNote(f * 1.5, 2.4, 0.03); // a soft fifth above
+  }
+  melodyTimer = window.setTimeout(scheduleMelody, 3200 + Math.random() * 3200);
 }
 
 /** A short enveloped tone. */
