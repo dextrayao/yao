@@ -83,10 +83,12 @@ describe('render', () => {
     expect(svg).toContain('<path');
   });
 
-  it('draws a face for non-egg stages, none at 圓 (dissolved)', () => {
+  it('renders an abstract nucleus (no human face), none at 圓 (dissolved)', () => {
     const g = deriveGenome('seed-alpha');
-    expect(renderPetSvg(g, 'xi', { stats: { hunger: 10, mood: 80, energy: 70, vitality: 90, growth: 50 } })).toContain('class="face"');
-    expect(renderPetSvg(g, 'yuan')).not.toContain('class="face"'); // 筆下無人
+    const svg = renderPetSvg(g, 'xi', { stats: { hunger: 10, mood: 80, energy: 70, vitality: 90, growth: 50 } });
+    expect(svg).toContain('class="nucleus"');
+    expect(svg).not.toContain('class="eyes"'); // no human-face concept
+    expect(renderPetSvg(g, 'yuan')).not.toContain('class="nucleus"'); // 圓: pure light
   });
 });
 

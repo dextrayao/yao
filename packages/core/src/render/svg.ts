@@ -5,7 +5,7 @@
 
 import { derivePalette } from './palette.js';
 import { deriveShapes } from './shapes.js';
-import { expressionFor, renderFace } from './face.js';
+import { expressionFor } from './face.js';
 import { stageRank } from '../evolution.js';
 import type { Genome, Stage, Stats } from '../types.js';
 
@@ -77,7 +77,14 @@ export function renderPetSvg(
 
   const dissolved = expr === 'dissolved';
   const bodyOpacity = dissolved ? 0.55 : 1;
-  const face = renderFace(genome, expr, R, pal);
+  // Abstract living presence — a pulsing nucleus + inner sparks. No human face.
+  const nucleus = dissolved
+    ? ''
+    : `<g class="nucleus-g">
+      <ellipse class="nucleus" cx="0" cy="${fmt(-R * 0.04)}" rx="${fmt(R * 0.34)}" ry="${fmt(R * 0.28)}" fill="url(#hi-${sid})"/>
+      <circle class="spark s1" cx="${fmt(R * 0.22)}" cy="${fmt(-R * 0.16)}" r="${fmt(R * 0.05)}" fill="#ffffff"/>
+      <circle class="spark s2" cx="${fmt(-R * 0.2)}" cy="${fmt(R * 0.14)}" r="${fmt(R * 0.035)}" fill="#eaf6ff"/>
+    </g>`;
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img" aria-label="quantum spirit creature">
   <defs>
@@ -91,6 +98,11 @@ export function renderPetSvg(
       <stop offset="30%" stop-color="${pal.core}"/>
       <stop offset="100%" stop-color="${pal.coreEdge}"/>
     </radialGradient>
+    <radialGradient id="hi-${sid}" cx="50%" cy="45%" r="55%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="60%" stop-color="${pal.glow}" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="${pal.glow}" stop-opacity="0"/>
+    </radialGradient>
     <filter id="soft-${sid}" x="-60%" y="-60%" width="220%" height="220%">
       <feGaussianBlur stdDeviation="${bodyBlur.toFixed(1)}" result="b"/>
       <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
@@ -101,21 +113,28 @@ export function renderPetSvg(
     .mote { animation: mote-drift ease-in-out infinite alternate; transform-origin:center; }
     .orbit-spin { animation: orbit-spin linear infinite; transform-origin:0 0; }
     .body { animation: body-bob ease-in-out infinite alternate; transform-origin:center; }
-    .eyes { animation: blink ease-in-out infinite; transform-origin:center; transform-box:fill-box; }
+    .wobble { animation: wobble 3.4s ease-in-out infinite; transform-origin:center; transform-box:fill-box; }
+    .nucleus { animation: nucleus-pulse 2.6s ease-in-out infinite; transform-origin:center; transform-box:fill-box; }
+    .spark { animation: spark-tw 2.8s ease-in-out infinite alternate; transform-origin:center; transform-box:fill-box; }
+    .spark.s2 { animation-delay: 1.1s; }
     @keyframes aura-pulse { from { transform: scale(0.94); } to { transform: scale(1.08); } }
     @keyframes mote-drift { from { transform: translateY(${fmt(-genome.particleDrift * 8)}px); opacity:0.25; } to { transform: translateY(${fmt(genome.particleDrift * 8)}px); opacity:0.85; } }
     @keyframes orbit-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-    @keyframes body-bob { from { transform: translateY(-3px) scale(0.99); } to { transform: translateY(3px) scale(1.01); } }
-    @keyframes blink { 0%,92%,100% { transform: scaleY(1); } 96% { transform: scaleY(0.12); } }
-    @media (prefers-reduced-motion: reduce) { .aura,.mote,.orbit-spin,.body,.eyes { animation: none !important; } }
+    @keyframes body-bob { from { transform: translateY(-4px); } to { transform: translateY(4px); } }
+    @keyframes wobble { 0%,100% { transform: scale(1,1); } 33% { transform: scale(1.06,0.94); } 66% { transform: scale(0.95,1.05); } }
+    @keyframes nucleus-pulse { 0%,100% { transform: scale(0.88); opacity:0.75; } 50% { transform: scale(1.12); opacity:1; } }
+    @keyframes spark-tw { from { opacity:0.25; transform: translateY(2px); } to { opacity:1; transform: translateY(-2px); } }
+    @media (prefers-reduced-motion: reduce) { .aura,.mote,.orbit-spin,.body,.wobble,.nucleus,.spark { animation: none !important; } }
   </style>
   <g transform="translate(${half} ${half})">
     ${cloud}
     ${particles}
     ${orbits.join('\n    ')}
-    <g class="body" style="animation-duration:4s">
-      <path d="${shapes.corePath}" fill="url(#body-${sid})" opacity="${bodyOpacity}" filter="url(#soft-${sid})"/>
-      ${face}
+    <g class="body" style="animation-duration:5s">
+      <g class="wobble">
+        <path d="${shapes.corePath}" fill="url(#body-${sid})" opacity="${bodyOpacity}" filter="url(#soft-${sid})"/>
+      </g>
+      ${nucleus}
     </g>
   </g>
 </svg>`;
