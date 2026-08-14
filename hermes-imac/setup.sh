@@ -79,7 +79,8 @@ if [[ "$REACHABLE" != "1" ]]; then
     warn "連不到 ${HOST}:${PORT}。請確認："
     warn "  - iMac 已開機且沒有睡眠"
     warn "  - iMac 的「系統設定 → 一般 → 共享 → 遠端登入」已開啟"
-    warn "  - 兩台機器在同一個區網"
+    warn "  - 兩台機器在同一個區網（若走 Tailscale，請確認 tailscale status 兩邊都在線，"
+    warn "    並改用 MagicDNS 名稱或 100.x.y.z 位址當 --host）"
     exit 1
 fi
 echo "OK，${HOST}:${PORT} 有回應。"

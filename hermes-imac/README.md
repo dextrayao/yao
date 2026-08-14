@@ -102,12 +102,61 @@ terminal:
 
 ---
 
+## 跨網路：改走 Tailscale（取代 `.local`）
+
+如果 Hermes 那台不一定跟 iMac 在同一個區網，或 `.local` 名稱常常解析失敗，
+把 Tailscale 當成網路層就好，**上面的步驟一到三完全不變**。
+
+### 不能用 Tailscale SSH
+
+Tailscale 有個 `tailscale up --ssh` 可以免金鑰、直接用 tailnet 身分認證，
+但它**只支援 Linux 和 macOS 的 Homebrew `tailscaled` CLI 版**。
+iMac 上一般安裝的 GUI 版（App Store 版或官網 standalone 版）都無法當 SSH server。
+
+所以做法是：**Tailscale 只負責接通網路，認證仍然走 macOS 內建的「遠端登入」+ SSH 金鑰。**
+
+### 設定
+
+1. iMac 和 Hermes 機器**兩台都要**安裝 Tailscale 並登入同一個 tailnet
+2. iMac 上「遠端登入」和步驟二的完整取用磁碟權限**照樣要做**（SSH server 還是 macOS 的 sshd）
+3. 在 Hermes 機器上執行 `tailscale status`，找出 iMac 那一行，會長這樣：
+
+   ```
+   100.101.102.103   imac   your-account@   macOS   -
+   ```
+
+4. 用 MagicDNS 名稱跑設定腳本：
+
+   ```bash
+   ./setup.sh --host imac.你的tailnet.ts.net --user 你的iMac帳號
+   ```
+
+   MagicDNS 在 macOS 上偶爾會解析不到（[已知問題](https://github.com/tailscale/tailscale/issues/19139)）。
+   遇到就直接用左邊那個 `100.x.y.z` 位址，它永遠有效：
+
+   ```bash
+   ./setup.sh --host 100.101.102.103 --user 你的iMac帳號
+   ```
+
+### 比 `.local` 好在哪
+
+| | `.local`（mDNS） | Tailscale |
+|---|---|---|
+| 跨網路 | ✗ 只能同區網 | ✓ 在外面、手機熱點都能連 |
+| 名稱穩定度 | mDNS 偶爾解析不到 | MagicDNS 名稱固定，另有固定 100.x IP |
+| 對外開 port | 不需要 | 不需要（**也絕對不要**開） |
+| 加密 | SSH 自身 | SSH + WireGuard 雙層 |
+
+Tailscale 不會把睡著的 iMac 喚醒，睡眠問題跟區網做法一樣，見下面疑難排解。
+
 ## 疑難排解
 
 | 症狀 | 原因與處理 |
 |---|---|
 | `Connection refused` | iMac 的「遠端登入」沒開 |
-| 連不到 `iMac.local` | 改用 IP；或確認兩台在同一個區網、沒被訪客網路隔離 |
+| 連不到 `iMac.local` | 改用 IP；或確認兩台在同一個區網、沒被訪客網路隔離。要跨網路請改走 Tailscale |
+| Tailscale 的 `.ts.net` 名稱解析不到 | 改用 `tailscale status` 看到的 `100.x.y.z` 位址 |
+| `tailscale up --ssh` 說不支援 | iMac 的 GUI 版本來就不能當 Tailscale SSH server，照文件用金鑰即可 |
 | `Permission denied (publickey)` | 公鑰沒裝成功。刪掉 `~/.ssh/id_ed25519_imac*` 重跑 `setup.sh` |
 | `ls: Operation not permitted` | 步驟二沒做，或做完沒把「遠端登入」關掉再開 |
 | 過一陣子就斷線 | iMac 睡著了。「系統設定」→「鎖定畫面」把「顯示器關閉時自動進入睡眠」設為「永不」 |
@@ -116,5 +165,5 @@ terminal:
 ## 安全性
 
 - 金鑰是 `~/.ssh/id_ed25519_imac` 這把專用的，跟你其他 SSH 金鑰分開，之後要撤銷只要從 iMac 的 `~/.ssh/authorized_keys` 移掉那一行。
-- **只在信任的區網做這件事。** 不要為了遠端存取把 iMac 的 22 埠對外開放到 public internet，要跨網路請用 Tailscale 或 WireGuard。
+- **絕對不要**為了遠端存取把 iMac 的 22 埠 forward 到 public internet。要跨網路請走上面的 Tailscale 做法，它不需要開任何對外 port。
 - Hermes 拿到的權限等同於你這個 macOS 帳號，它讀得到你讀得到的所有東西。真的要限制範圍的話，在 iMac 上開一個只有必要資料夾權限的專用帳號來連。
