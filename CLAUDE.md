@@ -10,7 +10,9 @@ This file provides guidance for AI assistants working in this repository.
 
 ## Project Structure
 
-This is a newly initialized repository. As the project grows, document the directory layout here.
+As the project grows, document the directory layout here.
+
+- `hermes-imac/` — Setup script and guide for connecting Hermes Agent to an iMac over SSH to read and fetch files.
 
 <!--
 Example (update when applicable):
