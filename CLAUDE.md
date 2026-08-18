@@ -12,7 +12,7 @@ This file provides guidance for AI assistants working in this repository.
 
 As the project grows, document the directory layout here.
 
-- `hermes-imac/` — Setup script and guide for connecting Hermes Agent to an iMac over SSH to read and fetch files.
+- `hermes-imac/` — Setup scripts and guide for connecting Hermes Agent to an iMac over SSH (LAN or Tailscale) to read and fetch files.
 
 <!--
 Example (update when applicable):

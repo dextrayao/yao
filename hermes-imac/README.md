@@ -105,7 +105,7 @@ terminal:
 ## 跨網路：改走 Tailscale（取代 `.local`）
 
 如果 Hermes 那台不一定跟 iMac 在同一個區網，或 `.local` 名稱常常解析失敗，
-把 Tailscale 當成網路層就好，**上面的步驟一到三完全不變**。
+把 Tailscale 當成網路層就好。**iMac 那側的步驟一、二完全不變**，只有步驟三改用專用腳本。
 
 ### 不能用 Tailscale SSH
 
@@ -119,24 +119,37 @@ iMac 上一般安裝的 GUI 版（App Store 版或官網 standalone 版）都無
 
 1. iMac 和 Hermes 機器**兩台都要**安裝 Tailscale 並登入同一個 tailnet
 2. iMac 上「遠端登入」和步驟二的完整取用磁碟權限**照樣要做**（SSH server 還是 macOS 的 sshd）
-3. 在 Hermes 機器上執行 `tailscale status`，找出 iMac 那一行，會長這樣：
-
-   ```
-   100.101.102.103   imac   your-account@   macOS   -
-   ```
-
-4. 用 MagicDNS 名稱跑設定腳本：
+3. 在 Hermes 機器上跑 Tailscale 版設定腳本：
 
    ```bash
-   ./setup.sh --host imac.你的tailnet.ts.net --user 你的iMac帳號
+   ./setup-tailscale.sh --user 你的iMac帳號
    ```
 
-   MagicDNS 在 macOS 上偶爾會解析不到（[已知問題](https://github.com/tailscale/tailscale/issues/19139)）。
-   遇到就直接用左邊那個 `100.x.y.z` 位址，它永遠有效：
+腳本會自己讀 `tailscale status`，列出 tailnet 上的機器讓你選，選完就接手跑
+`setup.sh` 的全部流程。不必手抄 IP，也不用管 MagicDNS 名稱長什麼樣：
 
-   ```bash
-   ./setup.sh --host 100.101.102.103 --user 你的iMac帳號
-   ```
+```
+tailnet 上的機器：
+  [1] imac                 100.101.102.103  macOS    online
+  [2] macbook              100.64.0.9       macOS    offline
+  [3] nas                  100.64.0.20      linux    online
+選擇要連的機器編號: 1
+```
+
+已經知道名字就直接指定，跳過選單：
+
+```bash
+./setup-tailscale.sh --user 你的iMac帳號 --name imac
+```
+
+**預設用 `100.x.y.z` 位址而不是 MagicDNS 名稱**，因為 MagicDNS 在 macOS 上偶爾會
+解析不到（[已知問題](https://github.com/tailscale/tailscale/issues/19139)），
+而 Tailscale IP 每台機器固定不變，一定連得到。想用 MagicDNS 名稱加 `--magicdns`。
+
+其他選項跟 `setup.sh` 一樣（`--alias`、`--backend`），會直接傳過去。
+
+> macOS 的 Tailscale GUI 版不會把 `tailscale` 指令放進 PATH，腳本會自動去
+> `/Applications/Tailscale.app/Contents/MacOS/Tailscale` 找，不用自己設 alias。
 
 ### 比 `.local` 好在哪
 
@@ -157,6 +170,8 @@ Tailscale 不會把睡著的 iMac 喚醒，睡眠問題跟區網做法一樣，�
 | 連不到 `iMac.local` | 改用 IP；或確認兩台在同一個區網、沒被訪客網路隔離。要跨網路請改走 Tailscale |
 | Tailscale 的 `.ts.net` 名稱解析不到 | 改用 `tailscale status` 看到的 `100.x.y.z` 位址 |
 | `tailscale up --ssh` 說不支援 | iMac 的 GUI 版本來就不能當 Tailscale SSH server，照文件用金鑰即可 |
+| `找不到 tailscale 指令` | GUI 版沒放進 PATH。腳本會自動找 app bundle；仍失敗就用 `./setup.sh --host <100.x.y.z>` |
+| `tailnet 上除了本機之外沒有其他機器` | iMac 上的 Tailscale 沒登入，或登到了不同的 tailnet |
 | `Permission denied (publickey)` | 公鑰沒裝成功。刪掉 `~/.ssh/id_ed25519_imac*` 重跑 `setup.sh` |
 | `ls: Operation not permitted` | 步驟二沒做，或做完沒把「遠端登入」關掉再開 |
 | 過一陣子就斷線 | iMac 睡著了。「系統設定」→「鎖定畫面」把「顯示器關閉時自動進入睡眠」設為「永不」 |
