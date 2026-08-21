@@ -1,3 +1,4 @@
-# Blender 渲染產物與場景輸出
 out/
-*.blend1
+viewer/
+vendor/
+__pycache__/
